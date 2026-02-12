@@ -1,0 +1,71 @@
+======================================================================
+        APPLIFT ML TRAINING - PREPROCESSING PIPELINE REPORT
+======================================================================
+
+Generated: 2026-02-12 13:13:04
+Source Folder: Abrupt Initiation
+
+----------------------------------------------------------------------
+PHASE 1: DATA MERGING & CLEANING
+----------------------------------------------------------------------
+
+Files Processed: 26
+Original Shape: (5456, 23)
+Final Shape: (5456, 23)
+Duplicates Removed: 0
+Missing Values Fixed: 0 remaining
+
+📁 Files Summary:
+  - Files with quality_code column: 18
+  - Files needing quality inference: 8
+
+📊 Dataset Composition:
+  - Target 2 (Error Type 2): 5,456 samples (100.0%)
+
+🏋️ Equipment Distribution:
+  - Dumbbell: 5,456 samples (100.0%)
+
+💪 Exercise Distribution:
+  - Concentration Curls: 5,456 samples (100.0%)
+
+----------------------------------------------------------------------
+PHASE 2: RESEGMENTATION
+----------------------------------------------------------------------
+
+Files Resegmented: 26/26
+Total Original Reps: 260
+Total New Reps: 286
+Average Rep Change per File: 1.00
+
+----------------------------------------------------------------------
+FINAL DATASET COLUMNS
+----------------------------------------------------------------------
+
+  participant: int64 (5,456 non-null)
+  rep: int64 (5,456 non-null)
+  equipment_code: int64 (5,456 non-null)
+  exercise_code: int64 (5,456 non-null)
+  timestamp: float64 (5,456 non-null)
+  timestamp_ms: int64 (5,456 non-null)
+  accelX: float64 (5,456 non-null)
+  accelY: float64 (5,456 non-null)
+  accelZ: float64 (5,456 non-null)
+  accelMag: float64 (5,456 non-null)
+  gyroX: float64 (5,456 non-null)
+  gyroY: float64 (5,456 non-null)
+  gyroZ: float64 (5,456 non-null)
+  roll: float64 (5,456 non-null)
+  pitch: float64 (5,456 non-null)
+  yaw: float64 (5,456 non-null)
+  filteredX: float64 (5,456 non-null)
+  filteredY: float64 (5,456 non-null)
+  filteredZ: float64 (5,456 non-null)
+  filteredMag: float64 (5,456 non-null)
+  source_file: str (5,456 non-null)
+  target: int64 (5,456 non-null)
+   participant: float64 (5,456 non-null)
+  rep_original: int64 (5,456 non-null)
+
+======================================================================
+END OF REPORT
+======================================================================

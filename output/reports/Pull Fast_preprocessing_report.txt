@@ -1,0 +1,70 @@
+======================================================================
+        APPLIFT ML TRAINING - PREPROCESSING PIPELINE REPORT
+======================================================================
+
+Generated: 2026-02-10 19:38:12
+Source Folder: Pull Fast
+
+----------------------------------------------------------------------
+PHASE 1: DATA MERGING & CLEANING
+----------------------------------------------------------------------
+
+Files Processed: 11
+Original Shape: (3049, 22)
+Final Shape: (3049, 22)
+Duplicates Removed: 0
+Missing Values Fixed: 0 remaining
+
+📁 Files Summary:
+  - Files with quality_code column: 11
+  - Files needing quality inference: 0
+
+📊 Dataset Composition:
+  - Target 1 (Error Type 1): 3,049 samples (100.0%)
+
+🏋️ Equipment Distribution:
+  - Weight Stack: 3,049 samples (100.0%)
+
+💪 Exercise Distribution:
+  - Lateral Pulldown: 3,049 samples (100.0%)
+
+----------------------------------------------------------------------
+PHASE 2: RESEGMENTATION
+----------------------------------------------------------------------
+
+Files Resegmented: 11/11
+Total Original Reps: 125
+Total New Reps: 138
+Average Rep Change per File: 1.18
+
+----------------------------------------------------------------------
+FINAL DATASET COLUMNS
+----------------------------------------------------------------------
+
+  participant: int64 (3,049 non-null)
+  rep: int64 (3,049 non-null)
+  equipment_code: int64 (3,049 non-null)
+  exercise_code: int64 (3,049 non-null)
+  target: int64 (3,049 non-null)
+  timestamp: float64 (3,049 non-null)
+  timestamp_ms: int64 (3,049 non-null)
+  accelX: float64 (3,049 non-null)
+  accelY: float64 (3,049 non-null)
+  accelZ: float64 (3,049 non-null)
+  accelMag: float64 (3,049 non-null)
+  gyroX: float64 (3,049 non-null)
+  gyroY: float64 (3,049 non-null)
+  gyroZ: float64 (3,049 non-null)
+  roll: float64 (3,049 non-null)
+  pitch: float64 (3,049 non-null)
+  yaw: float64 (3,049 non-null)
+  filteredX: float64 (3,049 non-null)
+  filteredY: float64 (3,049 non-null)
+  filteredZ: float64 (3,049 non-null)
+  filteredMag: float64 (3,049 non-null)
+  source_file: str (3,049 non-null)
+  rep_original: int64 (3,049 non-null)
+
+======================================================================
+END OF REPORT
+======================================================================
