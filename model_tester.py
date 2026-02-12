@@ -37,12 +37,57 @@ MODELS_DIR = OUTPUT_DIR / 'models'
 PREDICTIONS_DIR = OUTPUT_DIR / 'predictions'
 PREDICTIONS_DIR.mkdir(parents=True, exist_ok=True)
 
-# Quality names for display
+# Equipment and Exercise codes
+EQUIPMENT_CODES = {
+    0: 'Dumbbell',
+    1: 'Barbell', 
+    2: 'Weight Stack'
+}
+
+EXERCISE_CODES = {
+    0: 'Concentration Curls',
+    1: 'Overhead Extension',
+    2: 'Bench Press',
+    3: 'Back Squat',
+    4: 'Lateral Pulldown',
+    5: 'Seated Leg Extension'
+}
+
+# Quality names by exercise code (exercise-specific mistake types)
+QUALITY_NAMES_BY_EXERCISE = {
+    # Dumbbell exercises (0, 1)
+    0: {0: 'Clean', 1: 'Uncontrolled Movement', 2: 'Abrupt Initiation'},
+    1: {0: 'Clean', 1: 'Uncontrolled Movement', 2: 'Abrupt Initiation'},
+    # Barbell exercises (2, 3)
+    2: {0: 'Clean', 1: 'Uncontrolled Movement', 2: 'Inclination Asymmetry'},
+    3: {0: 'Clean', 1: 'Uncontrolled Movement', 2: 'Inclination Asymmetry'},
+    # Weight Stack exercises (4, 5)
+    4: {0: 'Clean', 1: 'Pulling Too Fast', 2: 'Releasing Too Fast'},
+    5: {0: 'Clean', 1: 'Pulling Too Fast', 2: 'Releasing Too Fast'},
+}
+
+# Default quality names (fallback)
 QUALITY_NAMES = {
     0: 'Clean',
-    1: 'Uncontrolled',
-    2: 'Abrupt'
+    1: 'Uncontrolled Movement',
+    2: 'Abrupt Initiation'
 }
+
+
+def get_quality_names(exercise_code=None, df=None):
+    """Get quality names based on exercise code or dataframe"""
+    # If exercise_code provided directly
+    if exercise_code is not None and exercise_code in QUALITY_NAMES_BY_EXERCISE:
+        return QUALITY_NAMES_BY_EXERCISE[exercise_code]
+    
+    # Try to get from dataframe
+    if df is not None and 'exercise_code' in df.columns:
+        ex_code = df['exercise_code'].iloc[0]
+        if ex_code in QUALITY_NAMES_BY_EXERCISE:
+            return QUALITY_NAMES_BY_EXERCISE[ex_code]
+    
+    # Return default
+    return QUALITY_NAMES
 
 
 # =============================================================================
@@ -165,11 +210,17 @@ def compute_rep_features(df, feature_names):
         features = {}
         rep_metadata = {}
         
-        # Store rep info for display
-        if isinstance(group_key, tuple):
+        # Store rep info for display - handle different grouping scenarios
+        if isinstance(group_key, tuple) and len(group_key) == 2:
+            # Grouped by ['participant', 'rep']
             rep_metadata['participant'] = group_key[0]
             rep_metadata['rep'] = group_key[1]
+        elif isinstance(group_key, tuple) and len(group_key) == 1:
+            # Grouped by ['rep'] but still returns tuple
+            rep_metadata['participant'] = df['participant'].iloc[0] if 'participant' in df.columns else 'Unknown'
+            rep_metadata['rep'] = group_key[0]
         else:
+            # Grouped by single column (returns scalar)
             rep_metadata['participant'] = df['participant'].iloc[0] if 'participant' in df.columns else 'Unknown'
             rep_metadata['rep'] = group_key
         
@@ -257,7 +308,7 @@ def predict_reps(model_package, features_df):
     model = model_package['model']
     scaler = model_package['scaler']
     feature_names = model_package['feature_names']
-    class_names = model_package.get('class_names', QUALITY_NAMES)
+    # class_names loaded but not used here - used in display_results
     
     # Ensure we have all required features
     available_features = [col for col in feature_names if col in features_df.columns]
@@ -434,10 +485,10 @@ def show_results_gui(results_df, class_names):
     scrollbar = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=tree.yview)
     tree.configure(yscrollcommand=scrollbar.set)
     
-    # Configure tags for coloring
-    tree.tag_configure('clean', background='#c8e6c9')
-    tree.tag_configure('error1', background='#fff9c4')
-    tree.tag_configure('error2', background='#ffcdd2')
+    # Configure tags for coloring based on prediction code (0, 1, 2)
+    tree.tag_configure('quality_0', background='#c8e6c9')  # Green for Clean (code 0)
+    tree.tag_configure('quality_1', background='#fff9c4')  # Yellow for code 1 (Uncontrolled/Pulling Too Fast)
+    tree.tag_configure('quality_2', background='#ffcdd2')  # Red/Pink for code 2 (Abrupt/Inclination/Releasing)
     tree.tag_configure('high_conf', foreground='#2e7d32')
     tree.tag_configure('low_conf', foreground='#c62828')
     
@@ -445,13 +496,9 @@ def show_results_gui(results_df, class_names):
     for _, row in results_df.iterrows():
         conf_str = f"{row['confidence']:.1f}%"
         
-        # Determine tag based on prediction
-        if row['prediction'] == 'Clean':
-            tag = 'clean'
-        elif 'Abrupt' in row['prediction']:
-            tag = 'error1'
-        else:
-            tag = 'error2'
+        # Determine tag based on prediction code (0, 1, 2)
+        pred_code = row.get('prediction_code', 0)
+        tag = f'quality_{pred_code}'
         
         tree.insert('', tk.END, values=(
             row['rep'],
@@ -607,7 +654,10 @@ def run_model_tester():
     print("STEP 5: RESULTS")
     print("=" * 70)
     
-    class_names = model_package.get('class_names', QUALITY_NAMES)
+    # Get class names: prefer from model, fallback to exercise-specific from CSV
+    class_names = model_package.get('class_names')
+    if class_names is None:
+        class_names = get_quality_names(df=df)
     results_df = display_results(rep_info, predictions, probabilities, class_names)
     
     # =========================================================================
@@ -671,8 +721,10 @@ def run_quick_test(model_path=None, csv_path=None):
     # Predict
     predictions, probabilities = predict_reps(model_package, features_df)
     
-    # Display results
-    class_names = model_package.get('class_names', QUALITY_NAMES)
+    # Display results - prefer model class_names, fallback to exercise-specific
+    class_names = model_package.get('class_names')
+    if class_names is None:
+        class_names = get_quality_names(df=df)
     results_df = display_results(rep_info, predictions, probabilities, class_names)
     
     # Export

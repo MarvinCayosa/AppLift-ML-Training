@@ -81,10 +81,10 @@ EXERCISE_TYPES = {
 
 # Quality names for display - context-aware based on exercise type
 QUALITY_NAMES_BY_EXERCISE = {
-    0: {0: 'Clean', 1: 'Uncontrolled', 2: 'Abrupt'},  # Concentration Curls
-    1: {0: 'Clean', 1: 'Uncontrolled', 2: 'Abrupt'},  # Overhead Extension
-    2: {0: 'Clean', 1: 'Uncontrolled', 2: 'Inclination Asymmetry'},  # Bench Press
-    3: {0: 'Clean', 1: 'Uncontrolled', 2: 'Inclination Asymmetry'},  # Back Squat
+    0: {0: 'Clean', 1: 'Uncontrolled Movement', 2: 'Abrupt Initiation'},  # Concentration Curls
+    1: {0: 'Clean', 1: 'Uncontrolled Movement', 2: 'Abrupt Initiation'},  # Overhead Extension
+    2: {0: 'Clean', 1: 'Uncontrolled Movement', 2: 'Inclination Asymmetry'},  # Bench Press
+    3: {0: 'Clean', 1: 'Uncontrolled Movement', 2: 'Inclination Asymmetry'},  # Back Squat
     4: {0: 'Clean', 1: 'Pulling Too Fast', 2: 'Releasing Too Fast'},  # Lateral Pulldown
     5: {0: 'Clean', 1: 'Pulling Too Fast', 2: 'Releasing Too Fast'}   # Seated Leg Extension
 }
@@ -92,8 +92,8 @@ QUALITY_NAMES_BY_EXERCISE = {
 # Default quality names (fallback for unknown exercises)
 QUALITY_NAMES = {
     0: 'Clean',
-    1: 'Uncontrolled',
-    2: 'Poor Quality'
+    1: 'Uncontrolled Movement',
+    2: 'Abrupt Initiation'
 }
 
 

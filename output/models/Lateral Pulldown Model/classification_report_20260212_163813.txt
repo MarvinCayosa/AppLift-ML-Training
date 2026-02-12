@@ -1,0 +1,103 @@
+============================================================
+RANDOM FOREST CLASSIFIER - IMBALANCED DATA EVALUATION
+============================================================
+
+Training Date: 20260212_163813
+Number of Features: 201
+SMOTE Applied: No
+
+------------------------------------------------------------
+TEST SET PERFORMANCE
+------------------------------------------------------------
+                    precision    recall  f1-score   support
+
+             Clean       0.90      0.97      0.93        65
+  Pulling Too Fast       0.94      0.83      0.88        41
+Releasing Too Fast       1.00      1.00      1.00        39
+
+          accuracy                           0.94       145
+         macro avg       0.95      0.93      0.94       145
+      weighted avg       0.94      0.94      0.94       145
+
+------------------------------------------------------------
+CONFUSION MATRIX
+------------------------------------------------------------
+Actual \ Predicted       CleanPulling Too FastReleasing Too Fast
+-----------------------------------------------------
+Clean                      63           2           0
+Pulling Too Fast            7          34           0
+Releasing Too Fast           0           0          39
+
+Confusion Matrix (Percentages by Actual Class):
+--------------------------------------------------
+Actual \ Predicted       CleanPulling Too FastReleasing Too Fast
+-----------------------------------------------------
+Clean                   96.9%        3.1%        0.0%
+Pulling Too Fast        17.1%       82.9%        0.0%
+Releasing Too Fast        0.0%        0.0%      100.0%
+
+------------------------------------------------------------
+IMBALANCE-AWARE METRICS
+------------------------------------------------------------
+Standard Accuracy: 0.9379
+Balanced Accuracy: 0.9328
+F1 Weighted: 0.9371
+F1 Macro: 0.9388
+
+------------------------------------------------------------
+PER-CLASS PERFORMANCE
+------------------------------------------------------------
+  Clean:
+    Precision: 0.9000
+    Recall:    0.9692
+    F1 Score:  0.9333
+    Support:   65
+
+  Pulling Too Fast:
+    Precision: 0.9444
+    Recall:    0.8293
+    F1 Score:  0.8831
+    Support:   41
+
+  Releasing Too Fast:
+    Precision: 1.0000
+    Recall:    1.0000
+    F1 Score:  1.0000
+    Support:   39
+
+------------------------------------------------------------
+5-FOLD CROSS-VALIDATION
+------------------------------------------------------------
+Standard Accuracy:  0.9156 ± 0.0178
+Balanced Accuracy:  0.9083 ± 0.0152
+F1 Weighted:        0.9148 ± 0.0179
+F1 Macro:           0.9141 ± 0.0169
+
+Training Accuracy: 1.0000
+Generalization Gap: 0.0917
+
+------------------------------------------------------------
+TOP 20 FEATURES
+------------------------------------------------------------
+  filteredMag_skew: 0.0566
+  filteredZ_skew: 0.0522
+  accelZ_peak_position: 0.0519
+  accelMag_peak_position: 0.0494
+  filteredZ_median: 0.0184
+  filteredMag_median: 0.0182
+  accelMag_skew: 0.0174
+  filteredZ_max: 0.0172
+  accelMag_diff_max: 0.0169
+  accelZ_skew: 0.0166
+  filteredZ_kurtosis: 0.0164
+  filteredZ_peak_value: 0.0164
+  filteredMag_max: 0.0159
+  accelMag_diff_std: 0.0144
+  filteredMag_peak_value: 0.0142
+  filteredMag_kurtosis: 0.0138
+  accelZ_diff_max: 0.0136
+  filteredMag_min: 0.0123
+  filteredZ_min: 0.0119
+  accelZ_diff_std: 0.0117
+
+============================================================

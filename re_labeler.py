@@ -552,55 +552,56 @@ class RepLabelerApp:
         tk.Label(current_label_frame, textvariable=self.rep_info_var,
                 font=('Arial', 9, 'italic'), bg='#fff3cd', fg='#666').pack(side=tk.LEFT, padx=10)
         
-        # Quality selection buttons
-        buttons_frame = tk.Frame(quality_frame, bg='#fff3cd')
-        buttons_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        # Row with quality buttons on the left and equipment/exercise on the right
+        controls_frame = tk.Frame(quality_frame, bg='#fff3cd')
+        controls_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        
+        # LEFT SIDE: Quality selection buttons
+        buttons_frame = tk.Frame(controls_frame, bg='#fff3cd')
+        buttons_frame.pack(side=tk.LEFT)
         
         tk.Label(buttons_frame, text="▶ Change Quality to:", font=('Arial', 11, 'bold'),
                 bg='#fff3cd', fg='#856404').pack(side=tk.LEFT, padx=(0, 10))
         
         self.quality_btn_frame = tk.Frame(buttons_frame, bg='#fff3cd')
-        self.quality_btn_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.quality_btn_frame.pack(side=tk.LEFT)
         
         self.quality_buttons = {}
         self.create_quality_buttons()
+        
+        # RIGHT SIDE: Equipment and Exercise controls
+        meta_frame = tk.Frame(controls_frame, bg='#fff3cd')
+        meta_frame.pack(side=tk.RIGHT)
+        
+        tk.Label(meta_frame, text="Equipment:", font=('Arial', 9),
+                bg='#fff3cd').pack(side=tk.LEFT, padx=(0, 3))
+        
+        self.equipment_change_var = tk.StringVar()
+        self.equipment_dropdown = ttk.Combobox(meta_frame, textvariable=self.equipment_change_var,
+                                               values=[f"{k}: {v}" for k, v in EQUIPMENT_CODES.items()],
+                                               width=13, state='readonly')
+        self.equipment_dropdown.pack(side=tk.LEFT, padx=(0, 8))
+        self.equipment_dropdown.bind('<<ComboboxSelected>>', self.on_equipment_change_selected)
+        
+        tk.Label(meta_frame, text="Exercise:", font=('Arial', 9),
+                bg='#fff3cd').pack(side=tk.LEFT, padx=(0, 3))
+        
+        self.exercise_change_var = tk.StringVar()
+        self.exercise_dropdown = ttk.Combobox(meta_frame, textvariable=self.exercise_change_var,
+                                              values=[f"{k}: {v}" for k, v in EXERCISE_CODES.items()],
+                                              width=16, state='readonly')
+        self.exercise_dropdown.pack(side=tk.LEFT, padx=(0, 8))
+        
+        tk.Button(meta_frame, text="📝 Apply", 
+                 command=self.apply_metadata_change,
+                 font=('Arial', 9), bg='#2196F3', fg='white',
+                 padx=6, pady=2, cursor='hand2').pack(side=tk.LEFT)
         
         # Changes counter
         self.changes_var = tk.StringVar(value="No changes made")
         changes_label = tk.Label(bottom_frame, textvariable=self.changes_var,
                                 font=('Arial', 10, 'italic'), bg='#f5f5f5', fg='#666')
         changes_label.pack(pady=5)
-        
-        # Row 2: Equipment and Exercise change controls (secondary)
-        meta_frame = tk.Frame(bottom_frame, bg='#f5f5f5')
-        meta_frame.pack(fill=tk.X, padx=5, pady=5)
-        
-        # Equipment dropdown
-        tk.Label(meta_frame, text="Equipment:", font=('Arial', 9),
-                bg='#f5f5f5').pack(side=tk.LEFT, padx=(0, 5))
-        
-        self.equipment_change_var = tk.StringVar()
-        self.equipment_dropdown = ttk.Combobox(meta_frame, textvariable=self.equipment_change_var,
-                                               values=[f"{k}: {v}" for k, v in EQUIPMENT_CODES.items()],
-                                               width=15, state='readonly')
-        self.equipment_dropdown.pack(side=tk.LEFT, padx=(0, 10))
-        self.equipment_dropdown.bind('<<ComboboxSelected>>', self.on_equipment_change_selected)
-        
-        # Exercise dropdown
-        tk.Label(meta_frame, text="Exercise:", font=('Arial', 9),
-                bg='#f5f5f5').pack(side=tk.LEFT, padx=(0, 5))
-        
-        self.exercise_change_var = tk.StringVar()
-        self.exercise_dropdown = ttk.Combobox(meta_frame, textvariable=self.exercise_change_var,
-                                              values=[f"{k}: {v}" for k, v in EXERCISE_CODES.items()],
-                                              width=18, state='readonly')
-        self.exercise_dropdown.pack(side=tk.LEFT, padx=(0, 10))
-        
-        # Apply metadata button
-        tk.Button(meta_frame, text="📝 Apply", 
-                 command=self.apply_metadata_change,
-                 font=('Arial', 9), bg='#2196F3', fg='white',
-                 padx=8, pady=3, cursor='hand2').pack(side=tk.LEFT, padx=5)
     
     def on_equipment_change_selected(self, event=None):
         """Update exercise dropdown based on selected equipment"""
