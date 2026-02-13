@@ -209,17 +209,15 @@ def find_valleys(signal, distance=15, prominence=0.3):
     return peaks, properties
 
 
-def resegment_reps(df, signal_column='filteredMag', min_rep_duration_ms=500, max_rep_duration_ms=10000):
+def resegment_reps(df, signal_column='filteredMag', min_rep_duration_ms=800, max_rep_duration_ms=8000):
     """
     Re-segment reps based on valley-to-valley detection
     
-    Each rep is defined as: valley → peak → next valley
-    The rep starts at the valley and ends at the next valley
+    Processes EACH source file separately to ensure proper segmentation.
     
     Parameters:
     - df: DataFrame with sensor data
     - signal_column: Column to use for valley detection (default: 'filteredMag')
-                     NOTE: Always use magnitude for weight stack exercises, NOT raw Z values
     - min_rep_duration_ms: Minimum rep duration in milliseconds
     - max_rep_duration_ms: Maximum rep duration in milliseconds
     
@@ -227,13 +225,169 @@ def resegment_reps(df, signal_column='filteredMag', min_rep_duration_ms=500, max
     - df_resegmented: DataFrame with corrected 'rep' column
     - rep_info: List of dicts with rep boundary information
     """
-    # Detect equipment type and ensure proper signal column
-    # For weight stack exercises (equipment_code == 2), always use magnitude
-    if 'equipment_code' in df.columns:
-        equipment_code = df['equipment_code'].iloc[0]
-        if equipment_code == 2:  # Weight Stack
-            signal_column = 'filteredMag'
-            print(f"  Detected Weight Stack exercise - using filteredMag (magnitude) for segmentation")
+    # Check if we need to process by source file
+    if 'source_file' in df.columns:
+        source_files = df['source_file'].unique()
+        print(f"  Processing {len(source_files)} source files separately...")
+        
+        all_resegmented = []
+        all_rep_info = []
+        rep_offset = 0
+        
+        for source in source_files:
+            df_source = df[df['source_file'] == source].copy()
+            df_source = df_source.reset_index(drop=True)
+            
+            print(f"\n  📄 Processing: {source}")
+            
+            # Resegment this single source file
+            df_reseg, rep_info = resegment_single_source(
+                df_source, 
+                signal_column=signal_column,
+                min_rep_duration_ms=min_rep_duration_ms,
+                max_rep_duration_ms=max_rep_duration_ms
+            )
+            
+            # Offset rep numbers for merged output
+            if rep_offset > 0:
+                df_reseg['rep'] = df_reseg['rep'] + rep_offset
+                for info in rep_info:
+                    info['rep'] = info['rep'] + rep_offset
+            
+            rep_offset += len(rep_info)
+            
+            all_resegmented.append(df_reseg)
+            all_rep_info.extend(rep_info)
+        
+        # Combine all resegmented dataframes
+        df_resegmented = pd.concat(all_resegmented, ignore_index=True)
+        return df_resegmented, all_rep_info
+    else:
+        # Single file - process directly
+        return resegment_single_source(df, signal_column, min_rep_duration_ms, max_rep_duration_ms)
+
+
+def resegment_single_source(df, signal_column='filteredMag', min_rep_duration_ms=800, max_rep_duration_ms=8000):
+    """
+    Re-segment reps for a SINGLE source file based on valley-to-valley detection
+    
+    Each rep is defined as: valley → peak → next valley
+    The rep starts at the valley and ends at the next valley
+    
+    Parameters:
+    - df: DataFrame with sensor data (should be a single source file)
+    - signal_column: Column to use for valley detection (default: 'filteredMag')
+    - min_rep_duration_ms: Minimum rep duration in milliseconds
+    - max_rep_duration_ms: Maximum rep duration in milliseconds
+    
+    Returns:
+    - df_resegmented: DataFrame with corrected 'rep' column
+    - rep_info: List of dicts with rep boundary information
+    """
+    # Detect exercise type from source_file column (filename-based detection)
+    exercise_name = "UNKNOWN"
+    if 'source_file' in df.columns:
+        source_file = df['source_file'].iloc[0]
+        source_file_upper = source_file.upper()
+        
+        # Extract exercise name from filename
+        if 'CONCENTRATION_CURLS' in source_file_upper or 'CONCENTRATION CURLS' in source_file_upper:
+            exercise_name = "CONCENTRATION_CURLS"
+        elif 'OVERHEAD_EXTENSION' in source_file_upper or 'OVERHEAD EXTENSION' in source_file_upper:
+            exercise_name = "OVERHEAD_EXTENSION"
+        elif 'BENCH_PRESS' in source_file_upper or 'BENCH PRESS' in source_file_upper:
+            exercise_name = "BENCH_PRESS"
+        elif 'BACK_SQUAT' in source_file_upper or 'BACK SQUAT' in source_file_upper:
+            exercise_name = "BACK_SQUAT"
+        elif 'LATERAL_PULLDOWN' in source_file_upper or 'LATERAL PULLDOWN' in source_file_upper or 'LAT_PULLDOWN' in source_file_upper:
+            exercise_name = "LATERAL_PULLDOWN"
+        elif 'SEATED_LEG_EXTENSION' in source_file_upper or 'SEATED LEG EXTENSION' in source_file_upper or 'LEG_EXTENSION' in source_file_upper:
+            exercise_name = "SEATED_LEG_EXTENSION"
+    
+    print(f"  📋 Detected exercise: {exercise_name}")
+    
+    # Show quality distribution in this data (for informational purposes)
+    if 'target' in df.columns:
+        quality_counts = df['target'].value_counts().sort_index()
+        
+        # Quality labels depend on exercise type
+        if exercise_name in ["CONCENTRATION_CURLS", "OVERHEAD_EXTENSION"]:
+            # Dumbbell exercises
+            quality_labels = {0: 'Clean', 1: 'Uncontrolled Movement', 2: 'Abrupt Initiation'}
+        elif exercise_name in ["BENCH_PRESS", "BACK_SQUAT"]:
+            # Barbell exercises
+            quality_labels = {0: 'Clean', 1: 'Uncontrolled Movement', 2: 'Inclination Asymmetry'}
+        elif exercise_name in ["LATERAL_PULLDOWN", "SEATED_LEG_EXTENSION"]:
+            # Weight Stack exercises
+            quality_labels = {0: 'Clean', 1: 'Pulling Too Fast', 2: 'Releasing Too Fast'}
+        else:
+            # Default/Unknown
+            quality_labels = {0: 'Clean', 1: 'Quality Issue 1', 2: 'Quality Issue 2'}
+        
+        print(f"  📊 Quality distribution in data:")
+        for quality_code, count in quality_counts.items():
+            label = quality_labels.get(quality_code, f'Unknown ({quality_code})')
+            print(f"     - {label}: {count} samples")
+        print(f"  ℹ️  Note: Quality labels are preserved from the 'target' column, not changed by resegmentation")
+    
+    # Exercise-specific parameters based on exercise name
+    if exercise_name == "CONCENTRATION_CURLS":
+        # Concentration Curls: Controlled arm curls with defined peaks/valleys
+        signal_column = 'filteredMag'
+        prominence_factor = 0.1
+        std_factor = 0.5
+        min_prominence_floor = 0.1
+        min_rep_duration_ms = max(min_rep_duration_ms, 800)
+        max_rep_duration_ms = min(max_rep_duration_ms, 8000)
+        print(f"  ✓ Using CONCENTRATION_CURLS parameters")
+        
+    elif exercise_name == "OVERHEAD_EXTENSION":
+        # Overhead Extension: Overhead tricep movements
+        signal_column = 'filteredMag'
+        prominence_factor = 0.1
+        std_factor = 0.5
+        min_prominence_floor = 0.1
+        min_rep_duration_ms = max(min_rep_duration_ms, 800)
+        max_rep_duration_ms = min(max_rep_duration_ms, 8000)
+        print(f"  ✓ Using OVERHEAD_EXTENSION parameters")
+        
+    elif exercise_name == "BENCH_PRESS":
+        # Bench Press: Larger compound movement
+        signal_column = 'filteredMag'
+        prominence_factor = 0.1
+        std_factor = 0.5
+        min_prominence_floor = 0.1
+        min_rep_duration_ms = max(min_rep_duration_ms, 1000)
+        max_rep_duration_ms = min(max_rep_duration_ms, 10000)
+        print(f"  ✓ Using BENCH_PRESS parameters")
+        
+    elif exercise_name == "BACK_SQUAT":
+        # Back Squat: Lower body compound movement
+        signal_column = 'filteredMag'
+        prominence_factor = 0.1
+        std_factor = 0.5
+        min_prominence_floor = 0.1
+        min_rep_duration_ms = max(min_rep_duration_ms, 1200)
+        max_rep_duration_ms = min(max_rep_duration_ms, 12000)
+        print(f"  ✓ Using BACK_SQUAT parameters")
+        
+    elif exercise_name in ["LATERAL_PULLDOWN", "SEATED_LEG_EXTENSION"]:
+        # Weight Stack exercises: Cable machine with smoother signals
+        signal_column = 'filteredMag'
+        prominence_factor = 0.05
+        std_factor = 0.3
+        min_prominence_floor = 0.05
+        min_rep_duration_ms = max(min_rep_duration_ms, 1500)
+        max_rep_duration_ms = min(max_rep_duration_ms, 12000)
+        print(f"  ✓ Using WEIGHT_STACK parameters for {exercise_name}")
+        
+    else:
+        # Default/Unknown: Use conservative parameters
+        signal_column = 'filteredMag'
+        prominence_factor = 0.1
+        std_factor = 0.5
+        min_prominence_floor = 0.1
+        print(f"  ⚠️ Using DEFAULT parameters for unknown exercise")
     
     # Verify signal column exists
     if signal_column not in df.columns:
@@ -245,38 +399,76 @@ def resegment_reps(df, signal_column='filteredMag', min_rep_duration_ms=500, max
     signal = df[signal_column].values
     timestamps = df['timestamp_ms'].values
     
-    # Smooth the signal slightly to reduce noise-induced false valleys
-    if len(signal) > 11:
-        signal_smooth = savgol_filter(signal, window_length=11, polyorder=3)
+    # Smooth the signal - use stronger smoothing for weight stack exercises
+    if exercise_name in ["LATERAL_PULLDOWN", "SEATED_LEG_EXTENSION"]:
+        # Stronger smoothing for weight stack (more noise in cable machine)
+        window_length = min(21, len(signal) if len(signal) % 2 == 1 else len(signal) - 1)
+        if window_length >= 5:
+            signal_smooth = savgol_filter(signal, window_length=window_length, polyorder=3)
+        else:
+            signal_smooth = signal
     else:
-        signal_smooth = signal
+        # Standard smoothing for dumbbell/barbell exercises
+        if len(signal) > 11:
+            signal_smooth = savgol_filter(signal, window_length=11, polyorder=3)
+        else:
+            signal_smooth = signal
     
     # Calculate adaptive parameters based on signal characteristics
     signal_range = np.max(signal_smooth) - np.min(signal_smooth)
     signal_std = np.std(signal_smooth)
     
-    # Find valleys with adaptive prominence (at least 10% of range or 1 std)
-    min_prominence = max(signal_range * 0.1, signal_std * 0.5, 0.3)
+    # Find valleys with adaptive prominence using exercise-specific factors
+    min_prominence = max(signal_range * prominence_factor, signal_std * std_factor, min_prominence_floor)
     
-    # Estimate minimum distance between valleys (assume ~2-5 second reps at ~10-20Hz)
-    # Use median time step to calculate sample rate
+    # Estimate minimum distance between valleys based on exercise type
     if len(timestamps) > 1:
         median_dt = np.median(np.diff(timestamps))
         sample_rate = 1000 / median_dt  # Hz
-        min_distance = int(0.5 * sample_rate)  # Minimum 0.5 seconds between valleys
+        
+        if exercise_name in ["LATERAL_PULLDOWN", "SEATED_LEG_EXTENSION"]:
+            # Weight stack reps are slower - minimum 1.5 seconds between valleys
+            min_distance = int(1.5 * sample_rate)
+        else:
+            # Other exercises - minimum 0.5 seconds between valleys
+            min_distance = int(0.5 * sample_rate)
     else:
         min_distance = 5
     
     print(f"Signal analysis:")
+    print(f"  Exercise: {exercise_name}")
     print(f"  Range: {signal_range:.3f}")
     print(f"  Std: {signal_std:.3f}")
     print(f"  Min prominence for valleys: {min_prominence:.3f}")
     print(f"  Min distance between valleys: {min_distance} samples")
+    print(f"  Min rep duration: {min_rep_duration_ms}ms")
+    print(f"  Max rep duration: {max_rep_duration_ms}ms")
     
     # Find all valleys
     valley_indices, valley_props = find_valleys(signal_smooth, distance=min_distance, prominence=min_prominence)
     
     print(f"\nFound {len(valley_indices)} potential valleys")
+    
+    # If too few valleys found, try with lower prominence (applies to ALL exercises)
+    if len(valley_indices) < 2:
+        print("  ⚠️ Too few valleys found - trying with lower prominence...")
+        # Try progressively lower prominence
+        for retry_factor in [0.5, 0.25, 0.1]:
+            retry_prominence = min_prominence * retry_factor
+            valley_indices, valley_props = find_valleys(signal_smooth, distance=min_distance, prominence=retry_prominence)
+            print(f"  Retry with prominence={retry_prominence:.4f}: found {len(valley_indices)} valleys")
+            if len(valley_indices) >= 2:
+                min_prominence = retry_prominence
+                break
+        
+        # If still not enough, try finding peaks instead (some exercises have inverted patterns)
+        if len(valley_indices) < 2:
+            print("  ⚠️ Still too few valleys - trying peak detection instead...")
+            from scipy.signal import find_peaks as scipy_find_peaks
+            peak_indices, peak_props = scipy_find_peaks(signal_smooth, distance=min_distance, prominence=min_prominence * 0.5)
+            if len(peak_indices) >= 2:
+                print(f"  Found {len(peak_indices)} peaks - using peaks as boundaries")
+                valley_indices = peak_indices
     
     # Filter valleys by minimum rep duration
     valid_valleys = [0]  # Always start from the beginning
@@ -303,9 +495,48 @@ def resegment_reps(df, signal_column='filteredMag', min_rep_duration_ms=500, max
                 if len(local_valleys) > 0:
                     valid_valleys.append(valid_valleys[-1] + local_valleys[-1])
     
+    # Fallback: if we only have the start boundary, use original rep boundaries refined with valleys
+    original_reps = sorted([r for r in df['rep'].unique() if r > 0]) if 'rep' in df.columns else []
+    if len(valid_valleys) <= 1 and len(original_reps) >= 1:
+        print(f"\n⚠️ Valley detection failed - using original rep boundaries as guide")
+        print(f"  Original reps found: {original_reps}")
+        
+        valid_valleys = [0]
+        for rep in original_reps:
+            rep_mask = df['rep'] == rep
+            rep_indices = np.where(rep_mask)[0]
+            if len(rep_indices) == 0:
+                continue
+            
+            # Get the approximate end of this rep (using positional index)
+            rep_end_idx = rep_indices[-1]
+            rep_start_idx = rep_indices[0]
+            rep_duration = rep_end_idx - rep_start_idx
+            search_window = max(int(rep_duration * 0.2), 10)
+            
+            search_start = max(0, rep_end_idx - search_window)
+            search_end = min(len(signal_smooth), rep_end_idx + search_window)
+            
+            search_signal = signal_smooth[search_start:search_end]
+            if len(search_signal) > 3:
+                # Find the minimum in this window (the valley)
+                local_min_idx = np.argmin(search_signal)
+                valley_idx = search_start + local_min_idx
+                
+                # Only add if it's after the last valid valley
+                if valley_idx > valid_valleys[-1]:
+                    valid_valleys.append(valley_idx)
+        
+        # Add final boundary at the end
+        if valid_valleys[-1] < len(df) - 1:
+            valid_valleys.append(len(df) - 1)
+        
+        print(f"  Refined boundaries: {valid_valleys}")
+    
     print(f"Valid valley boundaries: {len(valid_valleys)}")
-    print(f"Valley indices: {valid_valleys}")
-    print(f"Valley timestamps: {[timestamps[v] for v in valid_valleys]}")
+    print(f"  → Will create {len(valid_valleys) - 1} reps")
+    print(f"Valley indices: {valid_valleys[:10]}{'...' if len(valid_valleys) > 10 else ''}")
+    print(f"Valley timestamps: {[timestamps[v] for v in valid_valleys[:10]]}{'...' if len(valid_valleys) > 10 else ''}")
     
     # Create new rep labels based on valley boundaries
     df_resegmented = df.copy()
@@ -521,12 +752,36 @@ def select_participant_and_session_ui(df):
                 quality_column = col
                 break
         
-        # Quality labels mapping (based on common exercise quality classification)
-        quality_labels = {
-            0: 'Clean',
-            1: 'Uncontrolled Movement', 
-            2: 'Abrupt Initiation'
-        }
+        # Detect exercise type from data to determine quality labels
+        exercise_name = "UNKNOWN"
+        if 'source_file' in df.columns and len(df) > 0:
+            source_file = df['source_file'].iloc[0].upper()
+            if 'CONCENTRATION_CURLS' in source_file or 'CONCENTRATION CURLS' in source_file:
+                exercise_name = "CONCENTRATION_CURLS"
+            elif 'OVERHEAD_EXTENSION' in source_file or 'OVERHEAD EXTENSION' in source_file:
+                exercise_name = "OVERHEAD_EXTENSION"
+            elif 'BENCH_PRESS' in source_file or 'BENCH PRESS' in source_file:
+                exercise_name = "BENCH_PRESS"
+            elif 'BACK_SQUAT' in source_file or 'BACK SQUAT' in source_file:
+                exercise_name = "BACK_SQUAT"
+            elif 'LATERAL_PULLDOWN' in source_file or 'LATERAL PULLDOWN' in source_file or 'LAT_PULLDOWN' in source_file:
+                exercise_name = "LATERAL_PULLDOWN"
+            elif 'SEATED_LEG_EXTENSION' in source_file or 'SEATED LEG EXTENSION' in source_file or 'LEG_EXTENSION' in source_file:
+                exercise_name = "SEATED_LEG_EXTENSION"
+        
+        # Quality labels mapping based on exercise type
+        if exercise_name in ["CONCENTRATION_CURLS", "OVERHEAD_EXTENSION"]:
+            # Dumbbell exercises
+            quality_labels = {0: 'Clean', 1: 'Uncontrolled', 2: 'Abrupt'}
+        elif exercise_name in ["BENCH_PRESS", "BACK_SQUAT"]:
+            # Barbell exercises
+            quality_labels = {0: 'Clean', 1: 'Uncontrolled', 2: 'Inclination'}
+        elif exercise_name in ["LATERAL_PULLDOWN", "SEATED_LEG_EXTENSION"]:
+            # Weight Stack exercises
+            quality_labels = {0: 'Clean', 1: 'Pull Fast', 2: 'Release Fast'}
+        else:
+            # Default
+            quality_labels = {0: 'Clean', 1: 'Quality 1', 2: 'Quality 2'}
         
         # Group by participant and source_file to get sessions
         session_stats = []
@@ -616,7 +871,10 @@ def select_participant_and_session_ui(df):
     
     # Create treeview for session list with quality distribution
     if quality_column:
-        columns = ('Participant', 'Session', 'Reps', 'Clean', 'Uncontrolled', 'Abrupt', 'Duration (s)')
+        # Use short labels for column headers (they'll show the actual labels in the data)
+        col2_label = quality_labels.get(1, 'Q1')[:12]  # Truncate to 12 chars max
+        col3_label = quality_labels.get(2, 'Q2')[:12]
+        columns = ('Participant', 'Session', 'Reps', 'Clean', col2_label, col3_label, 'Duration (s)')
     else:
         columns = ('Participant', 'Session', 'Reps', 'Samples', 'Duration (s)')
     
@@ -629,16 +887,16 @@ def select_participant_and_session_ui(df):
     
     if quality_column:
         tree.heading('Clean', text='Clean')
-        tree.heading('Uncontrolled', text='Uncontrolled')
-        tree.heading('Abrupt', text='Abrupt')
+        tree.heading(col2_label, text=col2_label)
+        tree.heading(col3_label, text=col3_label)
         tree.heading('Duration (s)', text='Duration (s)')
         
         tree.column('Participant', width=80, anchor='center')
         tree.column('Session', width=180, anchor='center')
         tree.column('Reps', width=50, anchor='center')
         tree.column('Clean', width=60, anchor='center')
-        tree.column('Uncontrolled', width=85, anchor='center')
-        tree.column('Abrupt', width=60, anchor='center')
+        tree.column(col2_label, width=85, anchor='center')
+        tree.column(col3_label, width=85, anchor='center')
         tree.column('Duration (s)', width=80, anchor='center')
     else:
         tree.heading('Samples', text='Samples')

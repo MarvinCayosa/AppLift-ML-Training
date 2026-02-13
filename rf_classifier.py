@@ -742,7 +742,8 @@ def get_hyperparameter_grid():
         'min_samples_leaf': [1, 2, 4],
         'max_features': ['sqrt', 'log2', None],
         'bootstrap': [True, False],
-        'criterion': ['gini', 'entropy']
+        'criterion': ['gini', 'entropy'],
+        'class_weight': ['balanced', 'balanced_subsample', None]  # Handle class imbalance
     }
     
     return param_grid
@@ -996,7 +997,7 @@ def train_random_forest(X_train, y_train, X_test, y_test, feature_names, best_pa
         model = create_optimized_model(best_params)
     else:
         print(f"  🔧 Using default hyperparameters")
-        # Default Random Forest parameters
+        # Default Random Forest parameters with class_weight='balanced' for imbalanced data
         model = RandomForestClassifier(
             n_estimators=200,
             max_depth=20,
@@ -1005,6 +1006,7 @@ def train_random_forest(X_train, y_train, X_test, y_test, feature_names, best_pa
             max_features='sqrt',
             bootstrap=True,
             criterion='gini',
+            class_weight='balanced',  # Handle class imbalance
             oob_score=True,
             random_state=42,
             n_jobs=-1
@@ -1113,6 +1115,7 @@ def perform_cross_validation(X, y, n_splits=5, best_params=None):
             min_samples_split=5,
             min_samples_leaf=2,
             max_features='sqrt',
+            class_weight='balanced',  # Handle class imbalance
             oob_score=True,
             random_state=42,
             n_jobs=-1

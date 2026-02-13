@@ -515,11 +515,27 @@ def resegment_single_file(df, signal_column='filteredMag', min_rep_duration_ms=5
     - df_resegmented: DataFrame with corrected 'rep' column
     - rep_info: List of dicts with rep boundary information
     """
-    # For weight stack exercises (equipment_code == 2), always use magnitude
-    if 'equipment_code' in df.columns:
-        equipment_code = df['equipment_code'].iloc[0]
-        if equipment_code == 2:
-            signal_column = 'filteredMag'
+    # Detect equipment and exercise type for adaptive parameters
+    equipment_code = df['equipment_code'].iloc[0] if 'equipment_code' in df.columns else 0
+    exercise_code = df['exercise_code'].iloc[0] if 'exercise_code' in df.columns else 0
+    
+    # Exercise-specific parameters
+    # Weight Stack exercises (4=Lateral Pulldown, 5=Seated Leg Extension) have different patterns
+    is_weight_stack = (equipment_code == 2) or (exercise_code in [4, 5])
+    
+    if is_weight_stack:
+        signal_column = 'filteredMag'
+        # Weight stack has smoother, lower amplitude signals - need lower prominence
+        prominence_factor = 0.05  # 5% of range (lower for subtle variations)
+        std_factor = 0.3
+        min_prominence_floor = 0.05  # Lower floor for weight stack
+        min_rep_duration_ms = max(min_rep_duration_ms, 1500)  # Weight stack reps are slower (1.5s min)
+        max_rep_duration_ms = min(max_rep_duration_ms, 12000)  # Allow longer reps
+    else:
+        # Dumbbell/Barbell exercises (including Overhead Extension)
+        prominence_factor = 0.1  # 10% of range
+        std_factor = 0.5
+        min_prominence_floor = 0.1  # Lower floor to catch valleys
     
     if signal_column not in df.columns:
         signal_column = 'filteredMag'
@@ -527,27 +543,52 @@ def resegment_single_file(df, signal_column='filteredMag', min_rep_duration_ms=5
     signal = df[signal_column].values
     timestamps = df['timestamp_ms'].values
     
-    # Smooth the signal
-    if len(signal) > 11:
-        signal_smooth = savgol_filter(signal, window_length=11, polyorder=3)
+    # Smooth the signal - use stronger smoothing for weight stack to reduce noise
+    if is_weight_stack:
+        window_length = min(21, len(signal) if len(signal) % 2 == 1 else len(signal) - 1)
+        if window_length >= 5:
+            signal_smooth = savgol_filter(signal, window_length=window_length, polyorder=3)
+        else:
+            signal_smooth = signal
     else:
-        signal_smooth = signal
+        if len(signal) > 11:
+            signal_smooth = savgol_filter(signal, window_length=11, polyorder=3)
+        else:
+            signal_smooth = signal
     
-    # Calculate adaptive parameters
+    # Calculate adaptive parameters using exercise-specific factors
     signal_range = np.max(signal_smooth) - np.min(signal_smooth)
     signal_std = np.std(signal_smooth)
-    min_prominence = max(signal_range * 0.1, signal_std * 0.5, 0.3)
+    min_prominence = max(signal_range * prominence_factor, signal_std * std_factor, min_prominence_floor)
     
-    # Estimate minimum distance between valleys
+    # Estimate minimum distance between valleys based on exercise type
     if len(timestamps) > 1:
         median_dt = np.median(np.diff(timestamps))
         sample_rate = 1000 / median_dt
-        min_distance = int(0.5 * sample_rate)
+        if is_weight_stack:
+            min_distance = int(1.5 * sample_rate)  # Weight stack reps are slower
+        else:
+            min_distance = int(0.5 * sample_rate)
     else:
         min_distance = 5
     
     # Find all valleys
     valley_indices, _ = find_valleys(signal_smooth, distance=min_distance, prominence=min_prominence)
+    
+    # If too few valleys found, try with lower prominence (applies to ALL exercises)
+    if len(valley_indices) < 2:
+        for retry_factor in [0.5, 0.25, 0.1]:
+            retry_prominence = min_prominence * retry_factor
+            valley_indices, _ = find_valleys(signal_smooth, distance=min_distance, prominence=retry_prominence)
+            if len(valley_indices) >= 2:
+                min_prominence = retry_prominence
+                break
+        
+        # If still not enough, try finding peaks instead
+        if len(valley_indices) < 2:
+            peak_indices, _ = find_peaks(signal_smooth, distance=min_distance, prominence=min_prominence * 0.5)
+            if len(peak_indices) >= 2:
+                valley_indices = peak_indices
     
     # Filter valleys by minimum rep duration
     valid_valleys = [0]
@@ -559,6 +600,33 @@ def resegment_single_file(df, signal_column='filteredMag', min_rep_duration_ms=5
         
         if min_rep_duration_ms <= duration_ms <= max_rep_duration_ms:
             valid_valleys.append(idx)
+    
+    # Fallback: if valley detection failed, use original rep boundaries refined with valleys
+    original_reps = sorted([r for r in df['rep'].unique() if r > 0]) if 'rep' in df.columns else []
+    if len(valid_valleys) <= 1 and len(original_reps) >= 1:
+        valid_valleys = [0]
+        for rep in original_reps:
+            rep_data = df[df['rep'] == rep]
+            if len(rep_data) == 0:
+                continue
+            
+            rep_end_idx = rep_data.index[-1]
+            rep_start_idx = rep_data.index[0]
+            rep_duration = rep_end_idx - rep_start_idx
+            search_window = max(int(rep_duration * 0.2), 10)
+            
+            search_start = max(0, rep_end_idx - search_window)
+            search_end = min(len(signal_smooth), rep_end_idx + search_window)
+            
+            search_signal = signal_smooth[search_start:search_end]
+            if len(search_signal) > 3:
+                local_min_idx = np.argmin(search_signal)
+                valley_idx = search_start + local_min_idx
+                if valley_idx > valid_valleys[-1]:
+                    valid_valleys.append(valley_idx)
+        
+        if valid_valleys[-1] < len(df) - 1:
+            valid_valleys.append(len(df) - 1)
     
     # Create new rep labels
     df_resegmented = df.copy()
