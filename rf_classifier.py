@@ -618,10 +618,69 @@ def compute_rep_features(df, signal_columns=None):
                             features[f'{col}_diff_std'] = np.std(diff)
                             features[f'{col}_diff_max'] = np.max(np.abs(diff))
                         
+                        # Jerk features (third derivative - rate of change of acceleration)
+                        if len(signal) > 2:
+                            # Compute jerk as third derivative (second diff)
+                            jerk = np.diff(signal, n=2)  # Second order difference approximates jerk
+                            features[f'{col}_jerk_mean'] = np.mean(jerk)
+                            features[f'{col}_jerk_std'] = np.std(jerk)
+                            features[f'{col}_jerk_max'] = np.max(np.abs(jerk))
+                            features[f'{col}_jerk_rms'] = np.sqrt(np.mean(jerk ** 2))
+                        
                         # Peak-related features
                         peak_idx = np.argmax(signal)
                         features[f'{col}_peak_position'] = peak_idx / len(signal) if len(signal) > 0 else 0
                         features[f'{col}_peak_value'] = signal[peak_idx]
+            
+            # Compute Log Dimensionless Jerk (LDLJ) for movement smoothness
+            # LDLJ = -ln((duration/a_peak²) * ∫jerk²dt)
+            # Values closer to 0 = smoother, more negative = jerkier
+            accel_cols = [col for col in ['accelX', 'accelY', 'accelZ'] if col in group_df.columns]
+            if len(accel_cols) == 3 and 'timestamp_ms' in group_df.columns:
+                try:
+                    timestamps = group_df['timestamp_ms'].values
+                    duration = (timestamps[-1] - timestamps[0]) / 1000.0  # Convert to seconds
+                    
+                    if duration > 0 and len(group_df) > 3:
+                        # Get acceleration signals
+                        accel_x = group_df['accelX'].dropna().values
+                        accel_y = group_df['accelY'].dropna().values
+                        accel_z = group_df['accelZ'].dropna().values
+                        
+                        # Compute total acceleration magnitude
+                        accel_mag = np.sqrt(accel_x**2 + accel_y**2 + accel_z**2)
+                        
+                        # Calculate a_peak (peak accel magnitude - mean accel magnitude)
+                        a_peak = np.max(accel_mag) - np.mean(accel_mag)
+                        
+                        if a_peak > 0.01:  # Avoid division by very small numbers
+                            # Compute jerk (third derivative) for each axis
+                            jerk_x = np.diff(accel_x, n=2)
+                            jerk_y = np.diff(accel_y, n=2)
+                            jerk_z = np.diff(accel_z, n=2)
+                            
+                            # Compute squared jerk magnitude
+                            jerk_squared = jerk_x**2 + jerk_y**2 + jerk_z**2
+                            
+                            # Integrate jerk² over time (sum approximation)
+                            jerk_integral = np.sum(jerk_squared)
+                            
+                            # Compute LDLJ
+                            ldlj_term = (duration / (a_peak**2)) * jerk_integral
+                            
+                            if ldlj_term > 0:
+                                features['ldlj'] = -np.log(ldlj_term)
+                                features['smoothness_score'] = -features['ldlj']  # Inverted: higher = smoother
+                            else:
+                                features['ldlj'] = 0
+                                features['smoothness_score'] = 0
+                        else:
+                            features['ldlj'] = 0
+                            features['smoothness_score'] = 0
+                except Exception as e:
+                    # If LDLJ computation fails, set to 0
+                    features['ldlj'] = 0
+                    features['smoothness_score'] = 0
             
             all_features.append(features)
             

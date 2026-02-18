@@ -2,69 +2,68 @@
         APPLIFT ML TRAINING - PREPROCESSING PIPELINE REPORT
 ======================================================================
 
-Generated: 2026-02-12 15:41:05
+Generated: 2026-02-16 17:03:23
 Source Folder: Release Fast
 
 ----------------------------------------------------------------------
 PHASE 1: DATA MERGING & CLEANING
 ----------------------------------------------------------------------
 
-Files Processed: 14
-Original Shape: (4189, 22)
-Final Shape: (4189, 22)
+Files Processed: 11
+Original Shape: (3491, 22)
+Final Shape: (3491, 22)
 Duplicates Removed: 0
 Missing Values Fixed: 0 remaining
 
 📁 Files Summary:
-  - Files with quality_code column: 14
+  - Files with quality_code column: 11
   - Files needing quality inference: 0
 
 📊 Dataset Composition:
-  - Target 1 (Error Type 1): 322 samples (7.7%)
-  - Target 2 (Error Type 2): 3,867 samples (92.3%)
+  - Target 2 (Error Type 2): 3,491 samples (100.0%)
 
 🏋️ Equipment Distribution:
-  - Weight Stack: 4,189 samples (100.0%)
+  - Weight Stack: 3,491 samples (100.0%)
 
 💪 Exercise Distribution:
-  - Lateral Pulldown: 4,189 samples (100.0%)
+  - Seated Leg Extension: 3,491 samples (100.0%)
 
 ----------------------------------------------------------------------
 PHASE 2: RESEGMENTATION
 ----------------------------------------------------------------------
 
-Files Resegmented: 14/14
-Total Original Reps: 182
-Total New Reps: 198
-Average Rep Change per File: 1.14
+Files Resegmented: 11/11
+Total Original Reps: 100
+Total New Reps: 136
+Average Rep Change per File: 3.27
 
 ----------------------------------------------------------------------
 FINAL DATASET COLUMNS
 ----------------------------------------------------------------------
 
-  participant: int64 (4,189 non-null)
-  rep: int64 (4,189 non-null)
-  equipment_code: int64 (4,189 non-null)
-  exercise_code: int64 (4,189 non-null)
-  target: int64 (4,189 non-null)
-  timestamp: float64 (4,189 non-null)
-  timestamp_ms: int64 (4,189 non-null)
-  accelX: float64 (4,189 non-null)
-  accelY: float64 (4,189 non-null)
-  accelZ: float64 (4,189 non-null)
-  accelMag: float64 (4,189 non-null)
-  gyroX: float64 (4,189 non-null)
-  gyroY: float64 (4,189 non-null)
-  gyroZ: float64 (4,189 non-null)
-  roll: float64 (4,189 non-null)
-  pitch: float64 (4,189 non-null)
-  yaw: float64 (4,189 non-null)
-  filteredX: float64 (4,189 non-null)
-  filteredY: float64 (4,189 non-null)
-  filteredZ: float64 (4,189 non-null)
-  filteredMag: float64 (4,189 non-null)
-  source_file: str (4,189 non-null)
-  rep_original: int64 (4,189 non-null)
+  participant: int64 (3,491 non-null)
+  rep: int64 (3,491 non-null)
+  equipment_code: int64 (3,491 non-null)
+  exercise_code: int64 (3,491 non-null)
+  target: int64 (3,491 non-null)
+  timestamp: float64 (3,491 non-null)
+  timestamp_ms: int64 (3,491 non-null)
+  accelX: float64 (3,491 non-null)
+  accelY: float64 (3,491 non-null)
+  accelZ: float64 (3,491 non-null)
+  accelMag: float64 (3,491 non-null)
+  gyroX: float64 (3,491 non-null)
+  gyroY: float64 (3,491 non-null)
+  gyroZ: float64 (3,491 non-null)
+  roll: float64 (3,491 non-null)
+  pitch: float64 (3,491 non-null)
+  yaw: float64 (3,491 non-null)
+  filteredX: float64 (3,491 non-null)
+  filteredY: float64 (3,491 non-null)
+  filteredZ: float64 (3,491 non-null)
+  filteredMag: float64 (3,491 non-null)
+  source_file: str (3,491 non-null)
+  rep_original: int64 (3,491 non-null)
 
 ======================================================================
 END OF REPORT
