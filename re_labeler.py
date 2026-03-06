@@ -53,6 +53,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
 from datetime import datetime
+import copy
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
@@ -316,6 +317,13 @@ class RepLabelerApp:
         # Rep boundaries for full dataset view click detection
         self.rep_boundaries = []
         
+        # Rep boundary editing - track splits and renumbering
+        self.rep_splits = {}  # {rep_id: split_timestamp_ms} - splits to apply
+        self.rep_renumber_map = {}  # {old_rep_id: new_rep_num} - renumbering map
+        
+        # Single-step undo stack (stores snapshots before each edit action)
+        self.undo_stack = []
+        
         self.setup_ui()
         
     def setup_ui(self):
@@ -348,7 +356,7 @@ class RepLabelerApp:
                  font=('Arial', 10, 'bold'), bg='#FF9800', fg='white',
                  padx=15, pady=5, cursor='hand2').pack(side=tk.LEFT, padx=5, pady=5)
         
-        tk.Button(file_frame, text="↩️ Undo All", command=self.undo_all,
+        tk.Button(file_frame, text="↩️ Undo Last", command=self.undo_last_action,
                  font=('Arial', 10), bg='#9E9E9E', fg='white',
                  padx=15, pady=5, cursor='hand2').pack(side=tk.LEFT, padx=5, pady=5)
         
@@ -370,8 +378,40 @@ class RepLabelerApp:
                                          font=('Arial', 11, 'bold'), bg='#f5f5f5')
         self.labels_frame.pack(fill=tk.X, pady=(0, 10))
         
-        self.labels_container = tk.Frame(self.labels_frame, bg='#f5f5f5')
-        self.labels_container.pack(fill=tk.X, padx=10, pady=5)
+        labels_row = tk.Frame(self.labels_frame, bg='#f5f5f5')
+        labels_row.pack(fill=tk.X, padx=10, pady=5)
+        
+        self.labels_container = tk.Frame(labels_row, bg='#f5f5f5')
+        self.labels_container.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        # Top boundary tools (moved from bottom panel)
+        top_boundary_frame = tk.Frame(labels_row, bg='#e8f5e9', relief=tk.GROOVE, borderwidth=1)
+        top_boundary_frame.pack(side=tk.RIGHT, padx=(10, 0))
+        
+        tk.Label(top_boundary_frame, text="Boundary Tools:", font=('Arial', 9, 'bold'),
+                bg='#e8f5e9', fg='#2e7d32').pack(side=tk.LEFT, padx=(8, 6))
+        
+        tk.Button(top_boundary_frame, text="Split",
+                 command=self.split_rep_at_selection,
+                 font=('Arial', 8, 'bold'), bg='#7B1FA2', fg='white',
+                 padx=7, pady=2, cursor='hand2').pack(side=tk.LEFT, padx=2, pady=3)
+        
+        tk.Button(top_boundary_frame, text="Merge",
+                 command=self.merge_selected_rep,
+                 font=('Arial', 8, 'bold'), bg='#455A64', fg='white',
+                 padx=7, pady=2, cursor='hand2').pack(side=tk.LEFT, padx=2, pady=3)
+        
+        tk.Label(top_boundary_frame, text="Rep#:", font=('Arial', 8), bg='#e8f5e9').pack(side=tk.LEFT, padx=(8, 3))
+        
+        self.assign_rep_var = tk.StringVar(value="")
+        self.assign_rep_entry = tk.Entry(top_boundary_frame, textvariable=self.assign_rep_var,
+                                        width=5, font=('Arial', 9))
+        self.assign_rep_entry.pack(side=tk.LEFT, padx=2)
+        
+        tk.Button(top_boundary_frame, text="Assign",
+                 command=self.assign_selection_to_rep,
+                 font=('Arial', 8), bg='#00796B', fg='white',
+                 padx=7, pady=2, cursor='hand2').pack(side=tk.LEFT, padx=(2, 8), pady=3)
         
         self.update_quality_labels_display()
         
@@ -552,15 +592,17 @@ class RepLabelerApp:
         tk.Label(current_label_frame, textvariable=self.rep_info_var,
                 font=('Arial', 9, 'italic'), bg='#fff3cd', fg='#666').pack(side=tk.LEFT, padx=10)
         
-        # Row with quality buttons on the left and equipment/exercise on the right
+        # Controls row: Column 1 = quality labels, Column 2 = equipment/exercise relabeler
         controls_frame = tk.Frame(quality_frame, bg='#fff3cd')
         controls_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        controls_frame.grid_columnconfigure(0, weight=1)
+        controls_frame.grid_columnconfigure(1, weight=0)
         
-        # LEFT SIDE: Quality selection buttons
+        # Column 1 (left): quality selection buttons
         buttons_frame = tk.Frame(controls_frame, bg='#fff3cd')
-        buttons_frame.pack(side=tk.LEFT)
+        buttons_frame.grid(row=0, column=0, sticky='w')
         
-        tk.Label(buttons_frame, text="▶ Change Quality to:", font=('Arial', 11, 'bold'),
+        tk.Label(buttons_frame, text="Change Quality to:", font=('Arial', 11, 'bold'),
                 bg='#fff3cd', fg='#856404').pack(side=tk.LEFT, padx=(0, 10))
         
         self.quality_btn_frame = tk.Frame(buttons_frame, bg='#fff3cd')
@@ -569,33 +611,38 @@ class RepLabelerApp:
         self.quality_buttons = {}
         self.create_quality_buttons()
         
-        # RIGHT SIDE: Equipment and Exercise controls
-        meta_frame = tk.Frame(controls_frame, bg='#fff3cd')
-        meta_frame.pack(side=tk.RIGHT)
+        # Column 2 (right): equipment and exercise relabeler
+        meta_row = tk.Frame(controls_frame, bg='#fff3cd')
+        meta_row.grid(row=0, column=1, sticky='e', padx=(15, 0))
         
-        tk.Label(meta_frame, text="Equipment:", font=('Arial', 9),
+        tk.Label(meta_row, text="Equipment:", font=('Arial', 9),
                 bg='#fff3cd').pack(side=tk.LEFT, padx=(0, 3))
         
         self.equipment_change_var = tk.StringVar()
-        self.equipment_dropdown = ttk.Combobox(meta_frame, textvariable=self.equipment_change_var,
+        self.equipment_dropdown = ttk.Combobox(meta_row, textvariable=self.equipment_change_var,
                                                values=[f"{k}: {v}" for k, v in EQUIPMENT_CODES.items()],
                                                width=13, state='readonly')
         self.equipment_dropdown.pack(side=tk.LEFT, padx=(0, 8))
         self.equipment_dropdown.bind('<<ComboboxSelected>>', self.on_equipment_change_selected)
         
-        tk.Label(meta_frame, text="Exercise:", font=('Arial', 9),
+        tk.Label(meta_row, text="Exercise:", font=('Arial', 9),
                 bg='#fff3cd').pack(side=tk.LEFT, padx=(0, 3))
         
         self.exercise_change_var = tk.StringVar()
-        self.exercise_dropdown = ttk.Combobox(meta_frame, textvariable=self.exercise_change_var,
+        self.exercise_dropdown = ttk.Combobox(meta_row, textvariable=self.exercise_change_var,
                                               values=[f"{k}: {v}" for k, v in EXERCISE_CODES.items()],
                                               width=16, state='readonly')
         self.exercise_dropdown.pack(side=tk.LEFT, padx=(0, 8))
         
-        tk.Button(meta_frame, text="📝 Apply", 
+        tk.Button(meta_row, text="Apply", 
                  command=self.apply_metadata_change,
                  font=('Arial', 9), bg='#2196F3', fg='white',
                  padx=6, pady=2, cursor='hand2').pack(side=tk.LEFT)
+        
+        self.split_info_var = tk.StringVar(value="")
+        tk.Label(quality_frame, textvariable=self.split_info_var,
+                font=('Arial', 9, 'italic'), bg='#fff3cd', fg='#1b5e20',
+                anchor='w').pack(fill=tk.X, padx=12, pady=(0, 6))
         
         # Changes counter
         self.changes_var = tk.StringVar(value="No changes made")
@@ -668,6 +715,17 @@ class RepLabelerApp:
                                    f"This will update the equipment_code and exercise_code columns."):
             return
         
+        will_change = any(
+            self.reps_data[rep_id].get('equipment_code', self.equipment_code) != new_equipment or
+            self.reps_data[rep_id].get('exercise_code', self.exercise_code) != new_exercise
+            for rep_id in selected_rep_ids
+        )
+        if not will_change:
+            messagebox.showinfo("No Change", "Selected reps already have this equipment/exercise")
+            return
+        
+        self._push_undo_state("Metadata change")
+        
         # Apply changes to dataframe
         for rep_id in selected_rep_ids:
             rep_info = self.reps_data[rep_id]
@@ -729,11 +787,108 @@ class RepLabelerApp:
             color = QUALITY_COLORS[code]
             btn = tk.Button(self.quality_btn_frame, text=f"{code}: {label}",
                           font=('Arial', 11, 'bold'), bg=color, fg='white',
-                          padx=20, pady=10, cursor='hand2', relief=tk.RAISED,
+                          padx=12, pady=8, cursor='hand2', relief=tk.RAISED,
                           borderwidth=3, activebackground=color,
                           command=lambda c=code: self.change_label(c))
-            btn.pack(side=tk.LEFT, padx=8, pady=5)
+            btn.pack(side=tk.LEFT, padx=6, pady=5)
             self.quality_buttons[code] = btn
+    
+    def _capture_undo_state(self):
+        """Capture the current mutable state for single-step undo."""
+        if self.df is None:
+            return None
+        
+        return {
+            'df': self.df.copy(deep=True),
+            'changes_made': copy.deepcopy(self.changes_made),
+            'deleted_ranges': copy.deepcopy(self.deleted_ranges),
+            'rep_splits': copy.deepcopy(self.rep_splits),
+            'selected_rep': self.selected_rep,
+            'selected_session': self.selected_session,
+            'view_mode': self.view_mode_var.get(),
+            'filter': self.filter_var.get(),
+            'split_info': self.split_info_var.get()
+        }
+    
+    def _push_undo_state(self, action_name):
+        """Push current state to the undo stack before an edit action."""
+        state = self._capture_undo_state()
+        if state is None:
+            return
+        
+        self.undo_stack.append({'action': action_name, 'state': state})
+        if len(self.undo_stack) > 50:
+            self.undo_stack.pop(0)
+    
+    def _session_display_text(self, session_key):
+        """Build combobox text for a given session key."""
+        if session_key not in self.sessions_data:
+            return "All Sessions"
+        
+        session_info = self.sessions_data[session_key]
+        participant = session_info.get('participant', 1)
+        session_name = session_info.get('session', 'Unknown')
+        reps_count = len(session_info.get('reps', []))
+        
+        if len(session_name) > 25:
+            session_name = session_name[:22] + "..."
+        
+        return f"P{participant:03d} | {session_name} ({reps_count} reps)"
+    
+    def _restore_undo_state(self, state):
+        """Restore app state from an undo snapshot."""
+        self.df = state['df'].copy(deep=True)
+        self.changes_made = copy.deepcopy(state['changes_made'])
+        self.deleted_ranges = copy.deepcopy(state['deleted_ranges'])
+        self.rep_splits = copy.deepcopy(state['rep_splits'])
+        self.selection_start = None
+        self.selection_end = None
+        
+        self.parse_reps()
+        self.update_session_selector()
+        
+        filter_value = state.get('filter', "All")
+        if filter_value in self.filter_combo['values']:
+            self.filter_var.set(filter_value)
+        
+        selected_session = state.get('selected_session')
+        if selected_session in self.sessions_data:
+            self.selected_session = selected_session
+            self.session_var.set(self._session_display_text(selected_session))
+        else:
+            self.selected_session = None
+            self.session_var.set("All Sessions")
+        
+        self.update_rep_list()
+        self.update_changes_counter()
+        self.split_info_var.set(state.get('split_info', ""))
+        
+        selected_rep = state.get('selected_rep')
+        self.selected_rep = selected_rep if selected_rep in self.reps_data else None
+        
+        view_mode = state.get('view_mode', "Full Dataset")
+        if view_mode == "Single Rep" and not self.selected_rep:
+            view_mode = "Full Dataset"
+        
+        self.view_mode_var.set(view_mode)
+        if self.view_mode_var.get() == "Single Rep" and self.selected_rep:
+            self.visualize_rep(self.selected_rep)
+            self.update_rep_info(self.selected_rep)
+            self.reselect_rep(self.selected_rep)
+        else:
+            self.visualize_full_dataset()
+        
+        self.clear_selection()
+    
+    def undo_last_action(self):
+        """Undo only the most recent editing action."""
+        if not self.undo_stack:
+            messagebox.showinfo("No Undo", "No previous action to undo")
+            return
+        
+        last_entry = self.undo_stack.pop()
+        self._restore_undo_state(last_entry['state'])
+        messagebox.showinfo("Undone", f"Reverted last action: {last_entry['action']}")
     
     def load_csv(self):
         """Load a CSV file"""
@@ -752,6 +907,9 @@ class RepLabelerApp:
             self.current_file = file_path
             self.changes_made = {}
             self.deleted_ranges = {}
+            self.rep_splits = {}
+            self.undo_stack = []
+            self.split_info_var.set("")
             
             # Auto-detect equipment and exercise from path
             self.equipment_code, self.exercise_code, quality_from_path, self.detected_info = \
@@ -1273,6 +1431,8 @@ class RepLabelerApp:
                                        f"Delete {samples_to_delete} samples from {self.selection_start:.3f}s to {self.selection_end:.3f}s?"):
                 return
             
+            self._push_undo_state("Delete selection")
+            
             # Store deletion range
             if rep_id not in self.deleted_ranges:
                 self.deleted_ranges[rep_id] = []
@@ -1368,6 +1528,7 @@ class RepLabelerApp:
             messagebox.showinfo("No Deletions", "No deletions to undo for this rep")
             return
         
+        self._push_undo_state("Undo rep deletions")
         del self.deleted_ranges[self.selected_rep]
         
         self.visualize_rep(self.selected_rep)
@@ -1645,6 +1806,432 @@ class RepLabelerApp:
                 self.clear_selection()
                 break
 
+    # =========================================================================
+    # REP BOUNDARY EDITING METHODS
+    # =========================================================================
+    
+    def split_rep_at_selection(self):
+        """Split the current rep at the selected time point into two reps"""
+        if self.selected_rep is None:
+            messagebox.showwarning("No Rep Selected", "Please select a rep first")
+            return
+        
+        if self.selection_start is None or self.selection_end is None:
+            messagebox.showwarning("No Selection", 
+                "Please select a split point on the graph first.\n"
+                "(Click and drag horizontally to select the split region)")
+            return
+        
+        rep_id = self.selected_rep
+        if rep_id not in self.reps_data:
+            messagebox.showwarning("Invalid Rep", f"Rep {rep_id} not found")
+            return
+        
+        rep_info = self.reps_data[rep_id]
+        rep_data = rep_info['data']
+        
+        if 'timestamp_ms' not in rep_data.columns:
+            messagebox.showwarning("Error", "No timestamp column found - cannot split")
+            return
+        
+        # Use the midpoint of selection as split point
+        split_time_seconds = (self.selection_start + self.selection_end) / 2
+        base_time = rep_data['timestamp_ms'].iloc[0]
+        split_timestamp_ms = base_time + (split_time_seconds * 1000)
+        
+        # Count samples before and after split
+        samples_before = (rep_data['timestamp_ms'] < split_timestamp_ms).sum()
+        samples_after = (rep_data['timestamp_ms'] >= split_timestamp_ms).sum()
+        
+        if samples_before < 5 or samples_after < 5:
+            messagebox.showwarning("Invalid Split", 
+                f"Split would create reps with too few samples.\n"
+                f"Before: {samples_before}, After: {samples_after}\n"
+                f"Each part needs at least 5 samples.")
+            return
+        
+        # Confirm the split
+        current_rep_num = rep_info['rep']
+        if not messagebox.askyesno("Confirm Split", 
+            f"Split Rep {current_rep_num} at {split_time_seconds:.3f}s?\n\n"
+            f"Part 1: {samples_before} samples (stays as Rep {current_rep_num})\n"
+            f"Part 2: {samples_after} samples (becomes Rep {current_rep_num + 1})\n\n"
+            f"All subsequent reps will be renumbered (+1)."):
+            return
+        
+        self._push_undo_state("Split rep")
+        
+        # Perform the split
+        self._perform_rep_split(rep_id, split_timestamp_ms, samples_before, samples_after)
+        
+        # Clear selection and update UI
+        self.clear_selection()
+        self.update_rep_list()
+        self.update_changes_counter()
+        
+        # Visualize the first part of the split
+        self.visualize_rep(rep_id)
+        self.update_rep_info(rep_id)
+        
+        self.split_info_var.set(f"✂️ Split Rep {current_rep_num} → {current_rep_num} + {current_rep_num + 1}")
+        
+        messagebox.showinfo("Split Complete", 
+            f"Rep {current_rep_num} split successfully!\n\n"
+            f"• Rep {current_rep_num}: {samples_before} samples\n"
+            f"• Rep {current_rep_num + 1}: {samples_after} samples\n"
+            f"• Subsequent reps renumbered")
+    
+    def _perform_rep_split(self, rep_id, split_timestamp_ms, samples_before, samples_after):
+        """Internal method to perform the actual rep split"""
+        rep_info = self.reps_data[rep_id]
+        rep_data = rep_info['data']
+        original_rep_num = rep_info['rep']
+        participant = rep_info['participant']
+        session_key = rep_info.get('session_key', 'S1')
+        session_idx = rep_info.get('session_idx', 1)
+        
+        # Split the data
+        mask_part1 = rep_data['timestamp_ms'] < split_timestamp_ms
+        mask_part2 = rep_data['timestamp_ms'] >= split_timestamp_ms
+        
+        data_part1 = rep_data[mask_part1].copy()
+        data_part2 = rep_data[mask_part2].copy()
+        
+        indices_part1 = data_part1.index.tolist()
+        indices_part2 = data_part2.index.tolist()
+        
+        # Step 1: Renumber all subsequent reps in the dataframe (+1)
+        # Find all reps in the same session with rep number > current
+        for other_rep_id, other_info in list(self.reps_data.items()):
+            if other_info.get('session_key') == session_key and other_info['rep'] > original_rep_num:
+                old_rep_num = other_info['rep']
+                new_rep_num = old_rep_num + 1
+                
+                # Update dataframe
+                self.df.loc[other_info['indices'], 'rep'] = new_rep_num
+                
+                # Update reps_data
+                other_info['rep'] = new_rep_num
+                other_info['data']['rep'] = new_rep_num
+                
+                # Create new rep_id and transfer data
+                new_rep_id = f"P{participant}_S{session_idx}_R{new_rep_num}"
+                old_rep_id = other_rep_id
+                
+                if old_rep_id != new_rep_id:
+                    # Transfer to new key
+                    self.reps_data[new_rep_id] = other_info
+                    
+                    # Transfer any changes/deletions made to this rep
+                    if old_rep_id in self.changes_made:
+                        self.changes_made[new_rep_id] = self.changes_made.pop(old_rep_id)
+                    if old_rep_id in self.deleted_ranges:
+                        self.deleted_ranges[new_rep_id] = self.deleted_ranges.pop(old_rep_id)
+                    
+                    # Update session reps list
+                    if session_key in self.sessions_data:
+                        reps_list = self.sessions_data[session_key].get('reps', [])
+                        if old_rep_id in reps_list:
+                            idx = reps_list.index(old_rep_id)
+                            reps_list[idx] = new_rep_id
+                    
+                    # Delete old key (but not if it's the same as new)
+                    if old_rep_id in self.reps_data and old_rep_id != new_rep_id:
+                        del self.reps_data[old_rep_id]
+        
+        # Step 2: Update the original rep (part 1) - keep same rep_id
+        self.df.loc[indices_part1, 'rep'] = original_rep_num
+        rep_info['data'] = data_part1
+        rep_info['indices'] = indices_part1
+        
+        # Step 3: Create the new rep (part 2) with rep number = original + 1
+        new_rep_num = original_rep_num + 1
+        new_rep_id = f"P{participant}_S{session_idx}_R{new_rep_num}"
+        
+        # Update dataframe for part 2
+        self.df.loc[indices_part2, 'rep'] = new_rep_num
+        data_part2['rep'] = new_rep_num
+        
+        # Create new rep entry
+        self.reps_data[new_rep_id] = {
+            'data': data_part2,
+            'participant': participant,
+            'session': rep_info.get('session', 'Default'),
+            'session_key': session_key,
+            'session_idx': session_idx,
+            'source_file': rep_info.get('source_file'),
+            'rep': new_rep_num,
+            'quality_code': rep_info['quality_code'],  # Inherit quality from original
+            'equipment_code': rep_info.get('equipment_code', self.equipment_code),
+            'exercise_code': rep_info.get('exercise_code', self.exercise_code),
+            'indices': indices_part2
+        }
+        
+        # Add to session reps list
+        if session_key in self.sessions_data:
+            reps_list = self.sessions_data[session_key].get('reps', [])
+            # Find position to insert (after original rep)
+            if rep_id in reps_list:
+                idx = reps_list.index(rep_id)
+                reps_list.insert(idx + 1, new_rep_id)
+            else:
+                reps_list.append(new_rep_id)
+        
+        # Track the split for potential undo and for save
+        if rep_id not in self.rep_splits:
+            self.rep_splits[rep_id] = []
+        self.rep_splits[rep_id].append({
+            'split_timestamp_ms': split_timestamp_ms,
+            'new_rep_id': new_rep_id,
+            'original_rep_num': original_rep_num
+        })
+        
+        # Update selected rep if needed
+        if self.selected_rep == rep_id:
+            pass  # Keep the same selection (part 1)
+    
+    def assign_selection_to_rep(self):
+        """Assign the selected region to a specific rep number"""
+        if self.selected_rep is None:
+            messagebox.showwarning("No Rep Selected", "Please select a rep first")
+            return
+        
+        if self.selection_start is None or self.selection_end is None:
+            messagebox.showwarning("No Selection", 
+                "Please select a region on the graph first.\n"
+                "(Click and drag horizontally)")
+            return
+        
+        target_rep_str = self.assign_rep_var.get().strip()
+        if not target_rep_str:
+            messagebox.showwarning("No Target Rep", "Please enter a target rep number")
+            return
+        
+        try:
+            target_rep_num = int(target_rep_str)
+        except ValueError:
+            messagebox.showwarning("Invalid Number", "Please enter a valid rep number")
+            return
+        
+        rep_id = self.selected_rep
+        if rep_id not in self.reps_data:
+            messagebox.showwarning("Invalid Rep", f"Rep {rep_id} not found")
+            return
+        
+        rep_info = self.reps_data[rep_id]
+        rep_data = rep_info['data']
+        current_rep_num = rep_info['rep']
+        
+        if target_rep_num == current_rep_num:
+            messagebox.showinfo("No Change", "Selection is already in this rep")
+            return
+        
+        if 'timestamp_ms' not in rep_data.columns:
+            messagebox.showwarning("Error", "No timestamp column found")
+            return
+        
+        # Convert selection to timestamp_ms
+        base_time = rep_data['timestamp_ms'].iloc[0]
+        start_ms = base_time + (self.selection_start * 1000)
+        end_ms = base_time + (self.selection_end * 1000)
+        
+        # Find samples in selection
+        mask = (rep_data['timestamp_ms'] >= start_ms) & (rep_data['timestamp_ms'] <= end_ms)
+        samples_to_move = mask.sum()
+        
+        if samples_to_move == 0:
+            messagebox.showinfo("No Data", "No data points in selected region")
+            return
+        
+        # Confirm
+        if not messagebox.askyesno("Confirm Assignment", 
+            f"Move {samples_to_move} samples from Rep {current_rep_num} to Rep {target_rep_num}?"):
+            return
+        
+        self._push_undo_state("Assign selection to rep")
+        
+        # Get indices to move
+        selected_data = rep_data[mask]
+        indices_to_move = selected_data.index.tolist()
+        
+        # Update the rep number in dataframe
+        self.df.loc[indices_to_move, 'rep'] = target_rep_num
+        
+        # Find or create target rep
+        participant = rep_info['participant']
+        session_idx = rep_info.get('session_idx', 1)
+        session_key = rep_info.get('session_key', 'S1')
+        target_rep_id = f"P{participant}_S{session_idx}_R{target_rep_num}"
+        
+        if target_rep_id in self.reps_data:
+            # Append to existing rep
+            target_info = self.reps_data[target_rep_id]
+            target_data = pd.concat([target_info['data'], selected_data]).sort_values('timestamp_ms')
+            target_info['data'] = target_data.reset_index(drop=True)
+            target_info['indices'] = target_info['indices'] + indices_to_move
+        else:
+            # Create new rep
+            new_data = selected_data.copy()
+            new_data['rep'] = target_rep_num
+            self.reps_data[target_rep_id] = {
+                'data': new_data,
+                'participant': participant,
+                'session': rep_info.get('session', 'Default'),
+                'session_key': session_key,
+                'session_idx': session_idx,
+                'source_file': rep_info.get('source_file'),
+                'rep': target_rep_num,
+                'quality_code': rep_info['quality_code'],
+                'equipment_code': rep_info.get('equipment_code', self.equipment_code),
+                'exercise_code': rep_info.get('exercise_code', self.exercise_code),
+                'indices': indices_to_move
+            }
+            
+            # Add to session
+            if session_key in self.sessions_data:
+                reps_list = self.sessions_data[session_key].get('reps', [])
+                if target_rep_id not in reps_list:
+                    reps_list.append(target_rep_id)
+                    reps_list.sort()
+        
+        # Remove from current rep
+        remaining_data = rep_data[~mask]
+        rep_info['data'] = remaining_data.reset_index(drop=True)
+        rep_info['indices'] = [i for i in rep_info['indices'] if i not in indices_to_move]
+        
+        # If current rep is now empty, mark for deletion
+        if len(rep_info['data']) == 0:
+            self.changes_made[rep_id] = 'DELETED'
+            if session_key in self.sessions_data:
+                reps_list = self.sessions_data[session_key].get('reps', [])
+                if rep_id in reps_list:
+                    reps_list.remove(rep_id)
+        
+        # Clear and update UI
+        self.clear_selection()
+        self.update_rep_list()
+        self.update_changes_counter()
+        
+        # Visualize target rep
+        if target_rep_id in self.reps_data:
+            self.selected_rep = target_rep_id
+            self.visualize_rep(target_rep_id)
+            self.update_rep_info(target_rep_id)
+            self.reselect_rep(target_rep_id)
+        
+        self.split_info_var.set(f"📌 Moved {samples_to_move} samples to Rep {target_rep_num}")
+        
+        messagebox.showinfo("Assignment Complete", 
+            f"Moved {samples_to_move} samples to Rep {target_rep_num}")
+    
+    def merge_selected_rep(self):
+        """Merge the currently selected rep into a target rep number."""
+        if self.selected_rep is None:
+            messagebox.showwarning("No Rep Selected", "Please select a rep first")
+            return
+        
+        source_rep_id = self.selected_rep
+        if source_rep_id not in self.reps_data:
+            messagebox.showwarning("Invalid Rep", f"Rep {source_rep_id} not found")
+            return
+        
+        target_rep_str = self.assign_rep_var.get().strip()
+        if not target_rep_str:
+            messagebox.showwarning("No Target Rep", "Enter a target rep number in Rep# first")
+            return
+        
+        try:
+            target_rep_num = int(target_rep_str)
+        except ValueError:
+            messagebox.showwarning("Invalid Number", "Please enter a valid rep number")
+            return
+        
+        source_info = self.reps_data[source_rep_id]
+        source_rep_num = source_info['rep']
+        if target_rep_num == source_rep_num:
+            messagebox.showinfo("No Change", "Source and target reps are the same")
+            return
+        
+        participant = source_info['participant']
+        session_idx = source_info.get('session_idx', 1)
+        session_key = source_info.get('session_key', 'S1')
+        target_rep_id = f"P{participant}_S{session_idx}_R{target_rep_num}"
+        
+        if target_rep_id not in self.reps_data:
+            messagebox.showwarning(
+                "Target Missing",
+                f"Rep {target_rep_num} does not exist in this session.\nUse Split/Assign first to create it."
+            )
+            return
+        
+        target_info = self.reps_data[target_rep_id]
+        if target_info.get('session_key') != session_key:
+            messagebox.showwarning("Invalid Target", "Target rep must be in the same session")
+            return
+        
+        source_count = len(source_info.get('data', []))
+        target_count = len(target_info.get('data', []))
+        
+        if not messagebox.askyesno(
+            "Confirm Merge",
+            f"Merge Rep {source_rep_num} into Rep {target_rep_num}?\n\n"
+            f"Rep {target_rep_num}: {target_count} samples\n"
+            f"Rep {source_rep_num}: {source_count} samples\n\n"
+            f"After merge, Rep {source_rep_num} will be removed."
+        ):
+            return
+        
+        self._push_undo_state("Merge reps")
+        
+        source_indices = list(source_info.get('indices', []))
+        self.df.loc[source_indices, 'rep'] = target_rep_num
+        
+        source_data = source_info['data'].copy()
+        target_data = target_info['data'].copy()
+        merged_data = pd.concat([target_data, source_data], ignore_index=True)
+        if 'timestamp_ms' in merged_data.columns:
+            merged_data = merged_data.sort_values('timestamp_ms')
+        merged_data = merged_data.reset_index(drop=True)
+        
+        target_info['data'] = merged_data
+        target_info['indices'] = sorted(set(target_info.get('indices', []) + source_indices))
+        
+        # Move pending deletion marks from source rep to target rep
+        if source_rep_id in self.deleted_ranges:
+            self.deleted_ranges.setdefault(target_rep_id, []).extend(self.deleted_ranges.pop(source_rep_id))
+        
+        # Source rep is now empty and marked as deleted
+        source_info['data'] = source_info['data'].iloc[0:0].copy()
+        source_info['indices'] = []
+        self.changes_made.pop(source_rep_id, None)
+        self.changes_made[source_rep_id] = 'DELETED'
+        
+        if session_key in self.sessions_data:
+            reps_list = self.sessions_data[session_key].get('reps', [])
+            if source_rep_id in reps_list:
+                reps_list.remove(source_rep_id)
+            if target_rep_id not in reps_list:
+                reps_list.append(target_rep_id)
+            reps_list.sort()
+        
+        self.selected_rep = target_rep_id
+        self.clear_selection()
+        self.update_rep_list()
+        self.update_changes_counter()
+        self.visualize_rep(target_rep_id)
+        self.update_rep_info(target_rep_id)
+        self.reselect_rep(target_rep_id)
+        
+        self.split_info_var.set(f"Merged Rep {source_rep_num} into Rep {target_rep_num}")
+        messagebox.showinfo(
+            "Merge Complete",
+            f"Merged Rep {source_rep_num} into Rep {target_rep_num}.\n"
+            f"New sample count: {len(target_info['data'])}"
+        )
+    def undo_rep_splits(self):
+        """Undo the last boundary edit action."""
+        self.undo_last_action()
+
     def change_label(self, new_quality):
         """Change the label of the selected rep(s)"""
         # Get currently selected reps
@@ -1674,6 +2261,7 @@ class RepLabelerApp:
         
         # Apply changes to all selected reps
         changes_made = 0
+        undo_captured = False
         for rep_id in selected_rep_ids:
             rep_info = self.reps_data[rep_id]
             original_quality = rep_info['quality_code']
@@ -1681,11 +2269,21 @@ class RepLabelerApp:
             if new_quality == original_quality and rep_id not in self.changes_made:
                 continue  # No change needed
             elif new_quality == original_quality and rep_id in self.changes_made:
+                if not undo_captured:
+                    self._push_undo_state("Change label")
+                    undo_captured = True
                 del self.changes_made[rep_id]  # Revert to original
                 changes_made += 1
             else:
+                if not undo_captured:
+                    self._push_undo_state("Change label")
+                    undo_captured = True
                 self.changes_made[rep_id] = new_quality  # Apply new label
                 changes_made += 1
+        
+        if changes_made == 0:
+            messagebox.showinfo("No Change", "Selected reps already have that label")
+            return
         
         # Update UI
         self.update_rep_list()
@@ -1754,6 +2352,11 @@ class RepLabelerApp:
                 total_deletions = sum(len(ranges) for ranges in active_deletions.values())
                 changes.append(f"{total_deletions} deletion(s) in {len(active_deletions)} rep(s)")
         
+        # Count rep splits
+        if self.rep_splits:
+            total_splits = sum(len(splits) for splits in self.rep_splits.values())
+            changes.append(f"{total_splits} rep split(s)")
+        
         if changes:
             self.changes_var.set(f"📝 Pending: {', '.join(changes)}")
         else:
@@ -1761,7 +2364,7 @@ class RepLabelerApp:
     
     def save_changes(self):
         """Save changes to the original file"""
-        if not self.changes_made and not self.deleted_ranges:
+        if not self.changes_made and not self.deleted_ranges and not self.rep_splits:
             messagebox.showinfo("No Changes", "No changes to save")
             return
         
@@ -1774,6 +2377,9 @@ class RepLabelerApp:
             changes_summary.append(f"{len(self.changes_made)} label change(s)")
         if self.deleted_ranges:
             changes_summary.append(f"deletions in {len(self.deleted_ranges)} rep(s)")
+        if self.rep_splits:
+            total_splits = sum(len(splits) for splits in self.rep_splits.values())
+            changes_summary.append(f"{total_splits} rep split(s)")
         
         if not messagebox.askyesno("Confirm Save", 
                                    f"Save changes to:\n{self.current_file}?\n\nChanges: {', '.join(changes_summary)}"):
@@ -1796,9 +2402,13 @@ class RepLabelerApp:
             
             saved_label_changes = len(self.changes_made)
             saved_deletions = len(self.deleted_ranges)
+            saved_splits = sum(len(splits) for splits in self.rep_splits.values())
             
             self.changes_made = {}
             self.deleted_ranges = {}
+            self.rep_splits = {}
+            self.undo_stack = []
+            self.split_info_var.set("")
             
             self.update_rep_list()
             self.update_changes_counter()
@@ -1810,7 +2420,7 @@ class RepLabelerApp:
                 self.view_mode_var.set("Full Dataset")
                 self.visualize_full_dataset()
             
-            messagebox.showinfo("Success", f"Saved!\n• {saved_label_changes} label change(s)\n• {saved_deletions} rep(s) with deletions")
+            messagebox.showinfo("Success", f"Saved!\n• {saved_label_changes} label change(s)\n• {saved_deletions} rep(s) with deletions\n• {saved_splits} rep split(s)")
             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save:\n{e}")
@@ -1849,9 +2459,13 @@ class RepLabelerApp:
             
             saved_label_changes = len(self.changes_made)
             saved_deletions = len(self.deleted_ranges)
+            saved_splits = sum(len(splits) for splits in self.rep_splits.values())
             
             self.changes_made = {}
             self.deleted_ranges = {}
+            self.rep_splits = {}
+            self.undo_stack = []
+            self.split_info_var.set("")
             
             self.update_rep_list()
             self.update_changes_counter()
@@ -1863,7 +2477,7 @@ class RepLabelerApp:
                 self.view_mode_var.set("Full Dataset")
                 self.visualize_full_dataset()
             
-            messagebox.showinfo("Success", f"Saved to: {Path(file_path).name}\n• {saved_label_changes} label change(s)\n• {saved_deletions} rep(s) with deletions")
+            messagebox.showinfo("Success", f"Saved to: {Path(file_path).name}\n• {saved_label_changes} label change(s)\n• {saved_deletions} rep(s) with deletions\n• {saved_splits} rep split(s)")
             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save:\n{e}")
@@ -1909,33 +2523,8 @@ class RepLabelerApp:
             self.df = self.df.drop(indices_to_delete).reset_index(drop=True)
     
     def undo_all(self):
-        """Undo all pending changes"""
-        if not self.changes_made and not self.deleted_ranges:
-            messagebox.showinfo("No Changes", "No changes to undo")
-            return
-        
-        if not messagebox.askyesno("Confirm Undo", 
-                                   "Undo all pending changes (labels and deletions)?"):
-            return
-        
-        self.changes_made = {}
-        self.deleted_ranges = {}
-        self.df = self.original_df.copy()
-        self.parse_reps()
-        self.update_session_selector()
-        
-        self.update_rep_list()
-        self.update_changes_counter()
-        
-        if self.selected_rep and self.selected_rep in self.reps_data:
-            self.visualize_rep(self.selected_rep)
-            self.update_rep_info(self.selected_rep)
-        else:
-            self.selected_rep = None
-            self.view_mode_var.set("Full Dataset")
-            self.visualize_full_dataset()
-        
-        messagebox.showinfo("Undone", "All changes have been reverted")
+        """Backward-compatible alias for single-step undo."""
+        self.undo_last_action()
 
 
 # =============================================================================

@@ -291,19 +291,59 @@ def compute_rep_features(df, feature_names):
 # PREDICTION
 # =============================================================================
 
-def predict_reps(model_package, features_df):
+def predict_with_error_sensitivity(model, X_scaled, error_sensitivity=0.35, clean_class=0):
+    """
+    Make predictions with HIGHER sensitivity to errors (lower threshold).
+    
+    If ANY error class has probability >= error_sensitivity, predict that error.
+    This catches more uncontrolled/shaky movements at the cost of some false alarms.
+    
+    Parameters:
+    - model: Trained classifier with predict_proba
+    - X_scaled: Scaled feature matrix  
+    - error_sensitivity: Minimum probability to flag an error (lower = more sensitive)
+    - clean_class: The class ID for "Clean"
+    
+    Returns:
+    - predictions: numpy array of class predictions
+    """
+    probas = model.predict_proba(X_scaled)
+    classes = model.classes_
+    
+    predictions = []
+    for proba in probas:
+        # Find the highest error class probability
+        error_probs = [(classes[i], proba[i]) for i in range(len(classes)) if classes[i] != clean_class]
+        
+        if error_probs:
+            best_error_class, best_error_prob = max(error_probs, key=lambda x: x[1])
+            
+            # If any error class exceeds sensitivity threshold, predict that error
+            if best_error_prob >= error_sensitivity:
+                predictions.append(best_error_class)
+            else:
+                # Only predict Clean if ALL error classes are below threshold
+                predictions.append(clean_class)
+        else:
+            predictions.append(classes[np.argmax(proba)])
+    
+    return np.array(predictions)
+
+
+def predict_reps(model_package, features_df, error_sensitivity=0.35):
     """
     Use the trained model to predict classifications for each rep
     
     Parameters:
     - model_package: Dictionary containing model, scaler, feature_names
     - features_df: DataFrame with computed features
+    - error_sensitivity: Threshold for flagging errors (lower = more sensitive, default 0.35)
     
     Returns:
     - predictions: Array of predicted class labels
     - probabilities: Array of prediction probabilities
     """
-    print("\n🔮 Making predictions...")
+    print("\n🔮 Making predictions (error_sensitivity={:.0%})...".format(error_sensitivity))
     
     model = model_package['model']
     scaler = model_package['scaler']
@@ -333,11 +373,12 @@ def predict_reps(model_package, features_df):
     # Scale features
     X_scaled = scaler.transform(X)
     
-    # Make predictions
-    predictions = model.predict(X_scaled)
+    # Make predictions with error sensitivity (catches more shaky/uncontrolled reps)
+    predictions = predict_with_error_sensitivity(model, X_scaled, error_sensitivity=error_sensitivity)
     probabilities = model.predict_proba(X_scaled)
     
     print(f"  ✓ Predicted {len(predictions)} rep(s)")
+    print(f"  ℹ️  Using error_sensitivity={error_sensitivity:.0%} (lower = catches more errors)")
     
     return predictions, probabilities
 

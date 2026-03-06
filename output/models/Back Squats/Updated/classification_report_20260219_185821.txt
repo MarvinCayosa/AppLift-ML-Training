@@ -1,0 +1,107 @@
+============================================================
+RANDOM FOREST CLASSIFIER - IMBALANCED DATA EVALUATION
+============================================================
+
+Training Date: 20260219_185821
+Number of Features: 60
+SMOTE Applied: No
+Class Imbalance Strategy: None
+Dimensionality Reduction: correlation_rf_importance
+Features Before/After: 247/60
+Feature Reduction: 75.7%
+
+------------------------------------------------------------
+TEST SET PERFORMANCE
+------------------------------------------------------------
+                       precision    recall  f1-score   support
+
+                Clean       0.93      0.85      0.89        33
+Uncontrolled Movement       0.80      0.97      0.88        38
+Inclination Asymmetry       0.96      0.80      0.87        30
+
+             accuracy                           0.88       101
+            macro avg       0.90      0.87      0.88       101
+         weighted avg       0.89      0.88      0.88       101
+
+------------------------------------------------------------
+CONFUSION MATRIX
+------------------------------------------------------------
+Actual \ Predicted       CleanUncontrolled MovementInclination Asymmetry
+-----------------------------------------------------
+Clean                      28           5           0
+Uncontrolled Movement           0          37           1
+Inclination Asymmetry           2           4          24
+
+Confusion Matrix (Percentages by Actual Class):
+--------------------------------------------------
+Actual \ Predicted       CleanUncontrolled MovementInclination Asymmetry
+-----------------------------------------------------
+Clean                   84.8%       15.2%        0.0%
+Uncontrolled Movement        0.0%       97.4%        2.6%
+Inclination Asymmetry        6.7%       13.3%       80.0%
+
+------------------------------------------------------------
+IMBALANCE-AWARE METRICS
+------------------------------------------------------------
+Standard Accuracy: 0.8812
+Balanced Accuracy: 0.8741
+F1 Weighted: 0.8811
+F1 Macro: 0.8809
+
+------------------------------------------------------------
+PER-CLASS PERFORMANCE
+------------------------------------------------------------
+  Clean:
+    Precision: 0.9333
+    Recall:    0.8485
+    F1 Score:  0.8889
+    Support:   33
+
+  Uncontrolled Movement:
+    Precision: 0.8043
+    Recall:    0.9737
+    F1 Score:  0.8810
+    Support:   38
+
+  Inclination Asymmetry:
+    Precision: 0.9600
+    Recall:    0.8000
+    F1 Score:  0.8727
+    Support:   30
+
+------------------------------------------------------------
+5-FOLD CROSS-VALIDATION
+------------------------------------------------------------
+Standard Accuracy:  0.9167 +/- 0.0297
+Balanced Accuracy:  0.9143 +/- 0.0317
+F1 Weighted:        0.9165 +/- 0.0298
+F1 Macro:           0.9167 +/- 0.0302
+
+Training Accuracy: 0.9830
+Generalization Gap: 0.0687
+
+------------------------------------------------------------
+TOP 20 FEATURES
+------------------------------------------------------------
+  filteredZ_rms: 0.0960
+  accelZ_energy: 0.0836
+  gyroY_jerk_rms: 0.0736
+  accelZ_p25: 0.0704
+  avg_sample_rate: 0.0525
+  accelZ_peak_value: 0.0421
+  filteredZ_range: 0.0374
+  gyroY_range: 0.0369
+  gyroY_energy: 0.0303
+  filteredMag_range: 0.0201
+  filteredMag_iqr: 0.0201
+  accelZ_iqr: 0.0196
+  accelMag_min: 0.0176
+  accelMag_jerk_rms: 0.0171
+  gyroZ_jerk_rms: 0.0166
+  filteredMag_max: 0.0161
+  accelX_jerk_rms: 0.0148
+  gyroX_energy: 0.0140
+  filteredY_iqr: 0.0132
+  filteredMag_p75: 0.0122
+
+============================================================

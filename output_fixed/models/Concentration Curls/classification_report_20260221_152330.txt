@@ -1,0 +1,121 @@
+============================================================
+RANDOM FOREST CLASSIFIER - IMBALANCED DATA EVALUATION
+============================================================
+
+Training Date: 20260221_152330
+Number of Features: 60
+SMOTE Applied: No
+Class Imbalance Strategy: None
+Dimensionality Reduction: correlation_rf_importance
+Features Before/After: 247/60
+Feature Reduction: 75.7%
+
+------------------------------------------------------------
+TEST SET PERFORMANCE
+------------------------------------------------------------
+                       precision    recall  f1-score   support
+
+                Clean       0.98      0.97      0.98        61
+Uncontrolled Movement       0.92      0.99      0.95        70
+    Abrupt Initiation       1.00      0.93      0.96        56
+
+             accuracy                           0.96       187
+            macro avg       0.97      0.96      0.96       187
+         weighted avg       0.96      0.96      0.96       187
+
+------------------------------------------------------------
+CONFUSION MATRIX
+------------------------------------------------------------
+Actual \ Predicted       CleanUncontrolled MovementAbrupt Initiation
+-----------------------------------------------------
+Clean                      59           2           0
+Uncontrolled Movement           1          69           0
+Abrupt Initiation           0           4          52
+
+Confusion Matrix (Percentages by Actual Class):
+--------------------------------------------------
+Actual \ Predicted       CleanUncontrolled MovementAbrupt Initiation
+-----------------------------------------------------
+Clean                   96.7%        3.3%        0.0%
+Uncontrolled Movement        1.4%       98.6%        0.0%
+Abrupt Initiation        0.0%        7.1%       92.9%
+
+------------------------------------------------------------
+IMBALANCE-AWARE METRICS
+------------------------------------------------------------
+Standard Accuracy: 0.9626
+Balanced Accuracy: 0.9605
+F1 Weighted: 0.9627
+F1 Macro: 0.9633
+
+------------------------------------------------------------
+PER-CLASS PERFORMANCE
+------------------------------------------------------------
+  Clean:
+    Precision: 0.9833
+    Recall:    0.9672
+    F1 Score:  0.9752
+    Support:   61
+
+  Uncontrolled Movement:
+    Precision: 0.9200
+    Recall:    0.9857
+    F1 Score:  0.9517
+    Support:   70
+
+  Abrupt Initiation:
+    Precision: 1.0000
+    Recall:    0.9286
+    F1 Score:  0.9630
+    Support:   56
+
+------------------------------------------------------------
+5-FOLD CROSS-VALIDATION
+------------------------------------------------------------
+Standard Accuracy:  0.9182 +/- 0.0137
+Balanced Accuracy:  0.9182 +/- 0.0148
+F1 Weighted:        0.9183 +/- 0.0138
+F1 Macro:           0.9197 +/- 0.0141
+
+Training Accuracy: 1.0000
+Generalization Gap: 0.0818
+
+------------------------------------------------------------
+TOP 20 FEATURES
+------------------------------------------------------------
+  filteredMag_diff_std: 0.0771
+  accelY_diff_std: 0.0472
+  filteredY_diff_max: 0.0429
+  accelMag_range: 0.0423
+  filteredMag_max: 0.0409
+  gyroX_jerk_rms: 0.0386
+  gyroZ_jerk_rms: 0.0290
+  avg_sample_rate: 0.0283
+  accelZ_max: 0.0245
+  accelMag_rms: 0.0244
+  accelMag_jerk_rms: 0.0243
+  accelZ_range: 0.0243
+  accelY_rms: 0.0241
+  accelY_jerk_rms: 0.0240
+  gyroY_rms: 0.0217
+  gyroY_max: 0.0217
+  gyroZ_diff_std: 0.0210
+  filteredMag_peak_position: 0.0208
+  gyroY_energy: 0.0200
+  accelZ_jerk_rms: 0.0191
+
+------------------------------------------------------------
+PRECISION OPTIMIZATION (CASUAL FITNESS USERS)
+------------------------------------------------------------
+Error Threshold: 0.00
+Min Recall Constraint: 0.50
+
+Baseline  - Precision: 0.9646, Recall: 0.9626, F1: 0.9627
+Optimized - Precision: 0.9646, Recall: 0.9626, F1: 0.9627
+Precision Gain: +0.0000
+Recall Cost:    -0.0000
+
+DEPLOYMENT NOTE: Default predictions are already precision-optimal.
+No threshold adjustment needed.
+
+============================================================
