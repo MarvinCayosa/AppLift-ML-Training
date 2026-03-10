@@ -1,0 +1,43 @@
+============================================================
+PRECISION-FOCUSED THRESHOLD ANALYSIS
+Optimized for Casual Fitness Users
+============================================================
+
+RATIONALE:
+  For casual fitness users, false alarms (app incorrectly saying
+  'bad form') are more harmful than missed errors. Users get
+  frustrated and stop using the app. Therefore, we optimize for
+  HIGH PRECISION: when we flag an error, we should be confident.
+
+Optimal Error Threshold: 0.00
+Minimum Recall Constraint: 0.50
+
+BASELINE vs OPTIMIZED:
+  Baseline  - Precision: 0.9177, Recall: 0.9172, F1: 0.9169
+  Optimized - Precision: 0.9177, Recall: 0.9172, F1: 0.9169
+  Precision Gain: +0.0000
+  Recall Cost:    -0.0000
+
+THRESHOLD SWEEP:
+   Threshold |  Precision |     Recall |         F1 | Meets Min Recall
+  -----------------------------------------------------------------
+        0.30 |     0.9177 |     0.9172 |     0.9169 |              YES
+        0.35 |     0.9177 |     0.9172 |     0.9169 |              YES
+        0.40 |     0.9113 |     0.9103 |     0.9098 |              YES
+        0.45 |     0.9007 |     0.8966 |     0.8964 |              YES
+        0.50 |     0.8982 |     0.8897 |     0.8894 |              YES
+        0.55 |     0.9072 |     0.8897 |     0.8891 |              YES
+        0.60 |     0.9115 |     0.8897 |     0.8886 |              YES
+        0.65 |     0.8755 |     0.8276 |     0.8241 |              YES
+        0.70 |     0.8650 |     0.8069 |     0.8024 |              YES
+        0.75 |     0.8460 |     0.7655 |     0.7545 |               NO
+        0.80 |     0.8215 |     0.7034 |     0.6804 |               NO
+        0.85 |     0.8119 |     0.6759 |     0.6456 |               NO
+        0.90 |     0.7906 |     0.6069 |     0.5570 |               NO
+        0.95 |     0.7692 |     0.5241 |     0.4262 |               NO
+
+
+PER-CLASS METRICS (OPTIMIZED):
+  Clean: Precision=0.8971, Recall=0.9385, F1=0.9173
+  Pulling Too Fast: Precision=0.9211, Recall=0.8537, F1=0.8861
+  Releasing Too Fast: Precision=0.9487, Recall=0.9487, F1=0.9487

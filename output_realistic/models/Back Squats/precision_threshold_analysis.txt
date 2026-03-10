@@ -1,0 +1,43 @@
+============================================================
+PRECISION-FOCUSED THRESHOLD ANALYSIS
+Optimized for Casual Fitness Users
+============================================================
+
+RATIONALE:
+  For casual fitness users, false alarms (app incorrectly saying
+  'bad form') are more harmful than missed errors. Users get
+  frustrated and stop using the app. Therefore, we optimize for
+  HIGH PRECISION: when we flag an error, we should be confident.
+
+Optimal Error Threshold: 0.50
+Minimum Recall Constraint: 0.50
+
+BASELINE vs OPTIMIZED:
+  Baseline  - Precision: 0.8789, Recall: 0.8713, F1: 0.8711
+  Optimized - Precision: 0.9091, Recall: 0.8911, F1: 0.8911
+  Precision Gain: +0.0302
+  Recall Cost:    --0.0198
+
+THRESHOLD SWEEP:
+   Threshold |  Precision |     Recall |         F1 | Meets Min Recall
+  -----------------------------------------------------------------
+        0.30 |     0.8789 |     0.8713 |     0.8711 |              YES
+        0.35 |     0.8789 |     0.8713 |     0.8711 |              YES
+        0.40 |     0.8774 |     0.8713 |     0.8709 |              YES
+        0.45 |     0.8873 |     0.8812 |     0.8800 |              YES
+        0.50 |     0.9091 |     0.8911 |     0.8911 |              YES
+        0.55 |     0.9015 |     0.8713 |     0.8734 |              YES
+        0.60 |     0.8847 |     0.8218 |     0.8263 |              YES
+        0.65 |     0.8417 |     0.6931 |     0.6932 |               NO
+        0.70 |     0.8210 |     0.6040 |     0.5961 |               NO
+        0.75 |     0.8080 |     0.5347 |     0.5083 |               NO
+        0.80 |     0.7972 |     0.4653 |     0.4096 |               NO
+        0.85 |     0.7931 |     0.4356 |     0.3618 |               NO
+        0.90 |     0.7844 |     0.3663 |     0.2392 |               NO
+        0.95 |     0.4049 |     0.3366 |     0.1813 |               NO
+
+
+PER-CLASS METRICS (OPTIMIZED):
+  Clean: Precision=0.7857, Recall=1.0000, F1=0.8800
+  Uncontrolled Movement: Precision=0.9444, Recall=0.8947, F1=0.9189
+  Inclination Asymmetry: Precision=1.0000, Recall=0.7667, F1=0.8679
