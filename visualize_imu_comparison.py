@@ -11,6 +11,15 @@ from pathlib import Path
 import sys
 import os
 
+plt.rcParams.update({
+    'figure.titlesize': 11,
+    'axes.titlesize': 9,
+    'axes.labelsize': 8,
+    'xtick.labelsize': 7,
+    'ytick.labelsize': 7,
+    'legend.fontsize': 7,
+})
+
 # ====================================================================
 # CONFIGURABLE AXIS MAPPING - EDIT HERE TO TEST DIFFERENT COMBINATIONS
 # ====================================================================
@@ -18,6 +27,21 @@ AXIS_MAPPING_CONFIG = {
     'X': {'esp32_axis': 'Y', 'invert': True},   # Phone X ↔ ESP32 Y (inverted)
     'Y': {'esp32_axis': 'Z', 'invert': False},  # Phone Y ↔ ESP32 Z
     'Z': {'esp32_axis': 'X', 'invert': True}    # Phone Z ↔ ESP32 X (inverted)
+}
+
+QUATERNION_MAPPING_CONFIG = {
+    'phone': {
+        'qw': {'source': 'qw', 'invert': False},
+        'qx': {'source': 'qx', 'invert': False},
+        'qy': {'source': 'qy', 'invert': False},
+        'qz': {'source': 'qz', 'invert': False},
+    },
+    'esp32': {
+        'qw': {'source': 'qy', 'invert': False},
+        'qx': {'source': 'qx', 'invert': True},
+        'qy': {'source': 'qw', 'invert': False},
+        'qz': {'source': 'qz', 'invert': False},
+    },
 }
 
 # Alternative mappings to try (uncomment to test):
@@ -50,6 +74,90 @@ def print_mapping_config():
         invert_str = " (INVERTED)" if config['invert'] else ""
         print(f"  Phone {phone_axis} ↔ ESP32 {esp32_axis}{invert_str}")
     print("=" * 45)
+
+def print_quaternion_mapping_config():
+    """Print current quaternion mapping configuration"""
+    print("\n=== CURRENT QUATERNION MAPPING ===")
+    for device in ['phone', 'esp32']:
+        print(f"  {device.upper()}:")
+        for target_quat in ['qw', 'qx', 'qy', 'qz']:
+            config = QUATERNION_MAPPING_CONFIG[device][target_quat]
+            invert_str = " (INVERTED)" if config['invert'] else ""
+            print(f"    {target_quat} ← {config['source']}{invert_str}")
+    print("=" * 39)
+
+def compute_quaternion_angle_difference(df: pd.DataFrame):
+    """Recompute quaternion angle difference after any remapping."""
+    quat_cols = [
+        'phone_qw', 'phone_qx', 'phone_qy', 'phone_qz',
+        'esp32_qw', 'esp32_qx', 'esp32_qy', 'esp32_qz',
+    ]
+    if not all(col in df.columns for col in quat_cols):
+        return
+
+    phone_quat = df[['phone_qw', 'phone_qx', 'phone_qy', 'phone_qz']].to_numpy(dtype=float)
+    esp32_quat = df[['esp32_qw', 'esp32_qx', 'esp32_qy', 'esp32_qz']].to_numpy(dtype=float)
+
+    phone_norm = np.linalg.norm(phone_quat, axis=1)
+    esp32_norm = np.linalg.norm(esp32_quat, axis=1)
+    valid_mask = (
+        np.isfinite(phone_quat).all(axis=1)
+        & np.isfinite(esp32_quat).all(axis=1)
+        & (phone_norm > 0)
+        & (esp32_norm > 0)
+    )
+
+    diff_angles = np.full(len(df), np.nan)
+    if valid_mask.any():
+        phone_unit = phone_quat[valid_mask] / phone_norm[valid_mask, np.newaxis]
+        esp32_unit = esp32_quat[valid_mask] / esp32_norm[valid_mask, np.newaxis]
+        dot_products = np.sum(phone_unit * esp32_unit, axis=1)
+        dot_products = np.clip(np.abs(dot_products), -1.0, 1.0)
+        diff_angles[valid_mask] = 2.0 * np.degrees(np.arccos(dot_products))
+
+    df['diff_quat_angle_deg'] = diff_angles
+
+def apply_quaternion_mapping(df: pd.DataFrame):
+    """Apply quaternion remapping to phone and ESP32 components."""
+    print("\n=== QUATERNION REMAPPING ===")
+    print_quaternion_mapping_config()
+
+    for device in ['phone', 'esp32']:
+        source_values = {}
+        for quat in ['qw', 'qx', 'qy', 'qz']:
+            col = f'{device}_{quat}'
+            if col not in df.columns:
+                continue
+
+            if f'{col}_raw' not in df.columns:
+                df[f'{col}_raw'] = df[col]
+
+            source_series = df[f'{col}_raw']
+            if device == 'esp32':
+                source_series = source_series.interpolate(method='linear', limit_direction='both')
+            source_values[quat] = source_series.copy()
+
+        for target_quat, config in QUATERNION_MAPPING_CONFIG[device].items():
+            source_quat = config['source']
+            if source_quat not in source_values:
+                continue
+
+            mapped_values = source_values[source_quat].copy()
+            if config['invert']:
+                mapped_values = -mapped_values
+
+            df[f'{device}_{target_quat}'] = mapped_values
+            invert_str = ' (INVERTED)' if config['invert'] else ''
+            print(f"  {device}_{target_quat} ← {device}_{source_quat}{invert_str}")
+
+    if all(col in df.columns for col in ['esp32_qw', 'esp32_qx', 'esp32_qy', 'esp32_qz']):
+        df['esp32_quatNorm'] = np.sqrt(
+            df['esp32_qw']**2 + df['esp32_qx']**2 + df['esp32_qy']**2 + df['esp32_qz']**2
+        )
+
+    compute_quaternion_angle_difference(df)
+    df.attrs['quaternion_mapping'] = QUATERNION_MAPPING_CONFIG
+    print("✅ Quaternion remapping applied successfully.")
 
 def test_all_axis_combinations(df):
     """Test all possible axis combinations and show correlation results"""
@@ -108,7 +216,7 @@ def test_all_axis_combinations(df):
 
 # Get the script's directory and project root
 SCRIPT_DIR = Path(__file__).parent.resolve()
-PROJECT_ROOT = SCRIPT_DIR.parent
+PROJECT_ROOT = SCRIPT_DIR  # Use current directory as project root
 
 # Paths for data and output
 DATA_DIR = PROJECT_ROOT / 'data'
@@ -195,19 +303,7 @@ def load_comparison_data(csv_path: str) -> pd.DataFrame:
             df[esp32_col] = df[esp32_col].interpolate(method='linear', limit_direction='both')
             print(f"Interpolated {esp32_col}")
     
-    # Interpolate ESP32 quaternion data
-    for quat in ['qw', 'qx', 'qy', 'qz']:
-        esp32_col = f'esp32_{quat}'
-        if esp32_col in df.columns:
-            df[f'{esp32_col}_raw'] = df[esp32_col]
-            df[esp32_col] = df[esp32_col].interpolate(method='linear', limit_direction='both')
-            print(f"Interpolated {esp32_col}")
-    
-    # Interpolate quaternion norm if available
-    if 'esp32_quatNorm' in df.columns:
-        df['esp32_quatNorm_raw'] = df['esp32_quatNorm']
-        df['esp32_quatNorm'] = df['esp32_quatNorm'].interpolate(method='linear', limit_direction='both')
-        print("Interpolated esp32_quatNorm")
+    apply_quaternion_mapping(df)
     
     print("\nGyroscope data ranges (after interpolation):")
     for axis in ['X', 'Y', 'Z']:
@@ -249,8 +345,8 @@ def plot_quaternion_comparison(df: pd.DataFrame, save_path: str = None):
         print("Quaternion data not found in CSV")
         return
     
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle('Quaternion Components Comparison: Phone vs ESP32', fontsize=14, fontweight='bold')
+    fig, axes = plt.subplots(2, 2, figsize=(15, 10.5))
+    fig.suptitle('Quaternion Components Comparison', fontsize=12, fontweight='semibold')
     
     time = df['time_sec'] if 'time_sec' in df.columns else df.index
     
@@ -261,10 +357,10 @@ def plot_quaternion_comparison(df: pd.DataFrame, save_path: str = None):
         phone_col = f'phone_{comp}'
         esp32_col = f'esp32_{comp}'
         
-        axes[row, col].plot(time, df[phone_col], label='Phone', color='#2196f3', alpha=0.8, linewidth=1.5)
-        axes[row, col].plot(time, df[esp32_col], label='ESP32', color='#f44336', alpha=0.8, linewidth=1.5)
+        axes[row, col].plot(time, df[phone_col], label='Phone', color='#2196f3', alpha=0.8, linewidth=1.4)
+        axes[row, col].plot(time, df[esp32_col], label='ESP32', color='#f44336', alpha=0.8, linewidth=1.4)
         axes[row, col].set_ylabel(f'{comp.upper()}')
-        axes[row, col].set_title(f'Quaternion {comp.upper()} Component')
+        axes[row, col].set_title(f'Quaternion {comp.upper()} Component', fontsize=10)
         axes[row, col].legend()
         axes[row, col].grid(True, alpha=0.3)
         
@@ -272,13 +368,13 @@ def plot_quaternion_comparison(df: pd.DataFrame, save_path: str = None):
         phone_range = df[phone_col].max() - df[phone_col].min()
         esp32_range = df[esp32_col].max() - df[esp32_col].min()
         axes[row, col].text(0.02, 0.98, f'Phone range: {phone_range:.4f}\nESP32 range: {esp32_range:.4f}', 
-                           transform=axes[row, col].transAxes, fontsize=8, 
+                           transform=axes[row, col].transAxes, fontsize=6, 
                            verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
     
     axes[1, 0].set_xlabel('Time (s)')
     axes[1, 1].set_xlabel('Time (s)')
     
-    plt.tight_layout()
+    fig.tight_layout(pad=2.0, w_pad=1.8, h_pad=1.8)
     
     if save_path:
         plt.savefig(save_path, dpi=150, bbox_inches='tight')
@@ -288,34 +384,34 @@ def plot_quaternion_comparison(df: pd.DataFrame, save_path: str = None):
 
 def plot_quaternion_analysis(df: pd.DataFrame, save_path: str = None):
     """Plot quaternion analysis including angle differences and norms"""
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle('Quaternion Analysis: Angle Differences and Norms', fontsize=14, fontweight='bold')
+    fig, axes = plt.subplots(2, 2, figsize=(15, 10.5))
+    fig.suptitle('Quaternion Analysis', fontsize=12, fontweight='semibold')
     
     time = df['time_sec'] if 'time_sec' in df.columns else df.index
     
     # Quaternion angle difference
     if 'diff_quat_angle_deg' in df.columns:
-        axes[0, 0].plot(time, df['diff_quat_angle_deg'], color='#ff9800', linewidth=1.5)
+        axes[0, 0].plot(time, df['diff_quat_angle_deg'], color='#ff9800', linewidth=1.3)
         axes[0, 0].axhline(y=0, color='green', linestyle='--', alpha=0.5)
         axes[0, 0].axhline(y=5, color='orange', linestyle=':', alpha=0.5)
         axes[0, 0].axhline(y=10, color='red', linestyle=':', alpha=0.5)
         axes[0, 0].fill_between(time, 0, 5, alpha=0.1, color='green')
         axes[0, 0].fill_between(time, 5, 10, alpha=0.1, color='orange')
         axes[0, 0].set_ylabel('Angle Difference (°)')
-        axes[0, 0].set_title(f'Quaternion Angle Difference\n(Mean: {df["diff_quat_angle_deg"].mean():.2f}°, Std: {df["diff_quat_angle_deg"].std():.2f}°)')
+        axes[0, 0].set_title(f'Quaternion Angle Difference\nMean: {df["diff_quat_angle_deg"].mean():.2f}°, Std: {df["diff_quat_angle_deg"].std():.2f}°', fontsize=10)
         axes[0, 0].grid(True, alpha=0.3)
     
     # Calculate quaternion norms for both devices
     phone_norm = np.sqrt(df['phone_qw']**2 + df['phone_qx']**2 + df['phone_qy']**2 + df['phone_qz']**2)
-    axes[0, 1].plot(time, phone_norm, label='Phone Norm', color='#2196f3', alpha=0.8)
+    axes[0, 1].plot(time, phone_norm, label='Phone', color='#2196f3', alpha=0.8)
     if 'esp32_quatNorm' in df.columns:
-        axes[0, 1].plot(time, df['esp32_quatNorm'], label='ESP32 Norm', color='#f44336', alpha=0.8)
+        axes[0, 1].plot(time, df['esp32_quatNorm'], label='ESP32', color='#f44336', alpha=0.8)
     else:
         esp32_norm = np.sqrt(df['esp32_qw']**2 + df['esp32_qx']**2 + df['esp32_qy']**2 + df['esp32_qz']**2)
-        axes[0, 1].plot(time, esp32_norm, label='ESP32 Norm (calc)', color='#f44336', alpha=0.8)
+        axes[0, 1].plot(time, esp32_norm, label='ESP32', color='#f44336', alpha=0.8)
     axes[0, 1].axhline(y=1.0, color='green', linestyle='--', alpha=0.5, label='Ideal (1.0)')
     axes[0, 1].set_ylabel('Quaternion Norm')
-    axes[0, 1].set_title('Quaternion Normalization')
+    axes[0, 1].set_title('Quaternion Normalization', fontsize=10)
     axes[0, 1].legend()
     axes[0, 1].grid(True, alpha=0.3)
     
@@ -328,7 +424,7 @@ def plot_quaternion_analysis(df: pd.DataFrame, save_path: str = None):
         axes[1, 0].axvline(x=10, color='red', linestyle=':', alpha=0.7, label='10° threshold')
         axes[1, 0].set_xlabel('Angle Difference (°)')
         axes[1, 0].set_ylabel('Count')
-        axes[1, 0].set_title('Distribution of Quaternion Angle Differences')
+        axes[1, 0].set_title('Distribution of Quaternion Angle Differences', fontsize=10)
         axes[1, 0].legend()
         axes[1, 0].grid(True, alpha=0.3)
     
@@ -347,11 +443,11 @@ def plot_quaternion_analysis(df: pd.DataFrame, save_path: str = None):
         axes[1, 1].axhline(y=0, color='green', linestyle='--', alpha=0.5)
         axes[1, 1].set_xlabel('Time (s)')
         axes[1, 1].set_ylabel('Component Difference')
-        axes[1, 1].set_title('Quaternion Component Differences')
+        axes[1, 1].set_title('Quaternion Component Differences', fontsize=10)
         axes[1, 1].legend()
         axes[1, 1].grid(True, alpha=0.3)
     
-    plt.tight_layout()
+    fig.tight_layout(pad=2.0, w_pad=1.8, h_pad=1.8)
     
     if save_path:
         plt.savefig(save_path, dpi=150, bbox_inches='tight')
@@ -361,16 +457,16 @@ def plot_quaternion_analysis(df: pd.DataFrame, save_path: str = None):
 
 def plot_orientation_comparison(df: pd.DataFrame, save_path: str = None):
     """Plot orientation (Roll, Pitch, Yaw) comparison"""
-    fig, axes = plt.subplots(3, 2, figsize=(14, 10))
-    fig.suptitle('Orientation Comparison: Phone vs ESP32', fontsize=14, fontweight='bold')
+    fig, axes = plt.subplots(3, 2, figsize=(15, 11))
+    fig.suptitle('Orientation Comparison', fontsize=12, fontweight='semibold')
     
     time = df['time_sec'] if 'time_sec' in df.columns else df.index
     
     # Roll
-    axes[0, 0].plot(time, df['phone_roll'], label='Phone', color='#2196f3', alpha=0.8)
-    axes[0, 0].plot(time, df['esp32_roll'], label='ESP32', color='#f44336', alpha=0.8)
+    axes[0, 0].plot(time, df['phone_roll'], label='Phone', color='#2196f3', alpha=0.8, linewidth=1.3)
+    axes[0, 0].plot(time, df['esp32_roll'], label='ESP32', color='#f44336', alpha=0.8, linewidth=1.3)
     axes[0, 0].set_ylabel('Roll (°)')
-    axes[0, 0].set_title('Roll Comparison')
+    axes[0, 0].set_title('Roll Comparison', fontsize=10)
     axes[0, 0].legend()
     axes[0, 0].grid(True, alpha=0.3)
     
@@ -380,14 +476,14 @@ def plot_orientation_comparison(df: pd.DataFrame, save_path: str = None):
     axes[0, 1].axhline(y=-5, color='orange', linestyle=':', alpha=0.5)
     axes[0, 1].fill_between(time, -5, 5, alpha=0.1, color='green')
     axes[0, 1].set_ylabel('Δ Roll (°)')
-    axes[0, 1].set_title(f'Roll Difference (Mean: {df["diff_roll"].mean():.2f}°, Std: {df["diff_roll"].std():.2f}°)')
+    axes[0, 1].set_title(f'Roll Difference\nMean: {df["diff_roll"].mean():.2f}°, Std: {df["diff_roll"].std():.2f}°', fontsize=10)
     axes[0, 1].grid(True, alpha=0.3)
     
     # Pitch
-    axes[1, 0].plot(time, df['phone_pitch'], label='Phone', color='#2196f3', alpha=0.8)
-    axes[1, 0].plot(time, df['esp32_pitch'], label='ESP32', color='#f44336', alpha=0.8)
+    axes[1, 0].plot(time, df['phone_pitch'], label='Phone', color='#2196f3', alpha=0.8, linewidth=1.3)
+    axes[1, 0].plot(time, df['esp32_pitch'], label='ESP32', color='#f44336', alpha=0.8, linewidth=1.3)
     axes[1, 0].set_ylabel('Pitch (°)')
-    axes[1, 0].set_title('Pitch Comparison')
+    axes[1, 0].set_title('Pitch Comparison', fontsize=10)
     axes[1, 0].legend()
     axes[1, 0].grid(True, alpha=0.3)
     
@@ -397,15 +493,15 @@ def plot_orientation_comparison(df: pd.DataFrame, save_path: str = None):
     axes[1, 1].axhline(y=-5, color='orange', linestyle=':', alpha=0.5)
     axes[1, 1].fill_between(time, -5, 5, alpha=0.1, color='green')
     axes[1, 1].set_ylabel('Δ Pitch (°)')
-    axes[1, 1].set_title(f'Pitch Difference (Mean: {df["diff_pitch"].mean():.2f}°, Std: {df["diff_pitch"].std():.2f}°)')
+    axes[1, 1].set_title(f'Pitch Difference\nMean: {df["diff_pitch"].mean():.2f}°, Std: {df["diff_pitch"].std():.2f}°', fontsize=10)
     axes[1, 1].grid(True, alpha=0.3)
     
     # Yaw
-    axes[2, 0].plot(time, df['phone_yaw'], label='Phone', color='#2196f3', alpha=0.8)
-    axes[2, 0].plot(time, df['esp32_yaw'], label='ESP32', color='#f44336', alpha=0.8)
+    axes[2, 0].plot(time, df['phone_yaw'], label='Phone', color='#2196f3', alpha=0.8, linewidth=1.3)
+    axes[2, 0].plot(time, df['esp32_yaw'], label='ESP32', color='#f44336', alpha=0.8, linewidth=1.3)
     axes[2, 0].set_ylabel('Yaw (°)')
     axes[2, 0].set_xlabel('Time (s)')
-    axes[2, 0].set_title('Yaw Comparison')
+    axes[2, 0].set_title('Yaw Comparison', fontsize=10)
     axes[2, 0].legend()
     axes[2, 0].grid(True, alpha=0.3)
     
@@ -416,10 +512,10 @@ def plot_orientation_comparison(df: pd.DataFrame, save_path: str = None):
     axes[2, 1].fill_between(time, -5, 5, alpha=0.1, color='green')
     axes[2, 1].set_ylabel('Δ Yaw (°)')
     axes[2, 1].set_xlabel('Time (s)')
-    axes[2, 1].set_title(f'Yaw Difference (Mean: {df["diff_yaw"].mean():.2f}°, Std: {df["diff_yaw"].std():.2f}°)')
+    axes[2, 1].set_title(f'Yaw Difference\nMean: {df["diff_yaw"].mean():.2f}°, Std: {df["diff_yaw"].std():.2f}°', fontsize=10)
     axes[2, 1].grid(True, alpha=0.3)
     
-    plt.tight_layout()
+    fig.tight_layout(pad=2.0, w_pad=1.8, h_pad=1.8)
     
     if save_path:
         plt.savefig(save_path, dpi=150, bbox_inches='tight')
@@ -435,8 +531,8 @@ def plot_accelerometer_comparison(df: pd.DataFrame, save_path: str = None):
         print("Accelerometer data not found in CSV")
         return
     
-    fig, axes = plt.subplots(3, 2, figsize=(14, 10))
-    fig.suptitle('Accelerometer Comparison: Phone vs ESP32', fontsize=14, fontweight='bold')
+    fig, axes = plt.subplots(3, 2, figsize=(15, 11))
+    fig.suptitle('Accelerometer Comparison', fontsize=12, fontweight='semibold')
     
     time = df['time_sec'] if 'time_sec' in df.columns else df.index
     
@@ -450,10 +546,10 @@ def plot_accelerometer_comparison(df: pd.DataFrame, save_path: str = None):
         diff_col = f'diff_accel{axis}'
         
         # Comparison plot
-        axes[i, 0].plot(time, df[phone_col], label='Phone', color=colors_phone, alpha=0.8)
-        axes[i, 0].plot(time, df[esp32_col], label='ESP32', color=colors_esp32, alpha=0.8)
+        axes[i, 0].plot(time, df[phone_col], label='Phone', color=colors_phone, alpha=0.8, linewidth=1.3)
+        axes[i, 0].plot(time, df[esp32_col], label='ESP32', color=colors_esp32, alpha=0.8, linewidth=1.3)
         axes[i, 0].set_ylabel(f'Accel {axis} (m/s²)')
-        axes[i, 0].set_title(f'Accelerometer {axis} Comparison')
+        axes[i, 0].set_title(f'Accelerometer {axis} Comparison', fontsize=10)
         axes[i, 0].legend()
         axes[i, 0].grid(True, alpha=0.3)
         
@@ -465,13 +561,13 @@ def plot_accelerometer_comparison(df: pd.DataFrame, save_path: str = None):
             axes[i, 1].axhline(y=-1.0, color='orange', linestyle=':', alpha=0.5)
             axes[i, 1].fill_between(time, -1.0, 1.0, alpha=0.1, color='green')
             axes[i, 1].set_ylabel(f'Δ Accel {axis} (m/s²)')
-            axes[i, 1].set_title(f'Accel {axis} Difference (Mean: {df[diff_col].mean():.2f} m/s², Std: {df[diff_col].std():.2f} m/s²)')
+            axes[i, 1].set_title(f'Accel {axis} Difference\nMean: {df[diff_col].mean():.2f} m/s², Std: {df[diff_col].std():.2f} m/s²', fontsize=10)
             axes[i, 1].grid(True, alpha=0.3)
     
     axes[2, 0].set_xlabel('Time (s)')
     axes[2, 1].set_xlabel('Time (s)')
     
-    plt.tight_layout()
+    fig.tight_layout(pad=2.0, w_pad=1.8, h_pad=1.8)
     
     if save_path:
         plt.savefig(save_path, dpi=150, bbox_inches='tight')
@@ -493,14 +589,12 @@ def plot_gyroscope_comparison(df: pd.DataFrame, save_path: str = None):
     # Check if any axes were inverted
     title_suffix = ""
     if hasattr(df, 'attrs') and 'axis_mapping' in df.attrs:
-        title_suffix = " (Custom Axis Mapping Applied)"
+        title_suffix = " (Custom Mapping)"
     elif hasattr(df, 'attrs') and 'axis_inversions' in df.attrs:
-        inverted_axes = [axis for axis, inverted in df.attrs['axis_inversions'].items() if inverted]
-        if inverted_axes:
-            title_suffix = f" (Inverted: {', '.join(inverted_axes)})"
+        title_suffix = " (Mapped Axes)"
     
-    fig, axes = plt.subplots(3, 2, figsize=(14, 10))
-    fig.suptitle(f'Gyroscope Comparison: Phone (rad/s) vs ESP32 (deg/s){title_suffix}', fontsize=14, fontweight='bold')
+    fig, axes = plt.subplots(3, 2, figsize=(15, 11))
+    fig.suptitle(f'Gyroscope Comparison{title_suffix}', fontsize=12, fontweight='semibold')
     
     time = df['time_sec'] if 'time_sec' in df.columns else df.index
     
@@ -514,12 +608,12 @@ def plot_gyroscope_comparison(df: pd.DataFrame, save_path: str = None):
         ax2 = ax1.twinx()
         
         # Phone (rad/s) - left y-axis
-        line1 = ax1.plot(time, df[phone_col], label='Phone (rad/s)', color='#2196f3', alpha=0.8, linewidth=1.5)
+        line1 = ax1.plot(time, df[phone_col], label='Phone', color='#2196f3', alpha=0.8, linewidth=1.3)
         ax1.set_ylabel(f'Phone Gyro {axis} (rad/s)', color='#2196f3')
         ax1.tick_params(axis='y', labelcolor='#2196f3')
         
         # ESP32 (deg/s) - right y-axis
-        line2 = ax2.plot(time, df[esp32_col], label='ESP32 (deg/s)', color='#f44336', alpha=0.8, linewidth=1.5)
+        line2 = ax2.plot(time, df[esp32_col], label='ESP32', color='#f44336', alpha=0.8, linewidth=1.3)
         ax2.set_ylabel(f'ESP32 Gyro {axis} (deg/s)', color='#f44336')
         ax2.tick_params(axis='y', labelcolor='#f44336')
         
@@ -527,14 +621,11 @@ def plot_gyroscope_comparison(df: pd.DataFrame, save_path: str = None):
         title_suffix = ""
         if hasattr(df, 'attrs') and 'axis_mapping' in df.attrs:
             mapping = df.attrs['axis_mapping'][axis]
-            title_suffix = f" ↔ ESP32 {mapping['esp32_axis']}"
-            if mapping['invert']:
-                title_suffix += " [INVERTED]"
+            title_suffix = f" / ESP32 {mapping['esp32_axis']}"
         elif hasattr(df, 'attrs') and 'axis_inversions' in df.attrs:
-            if df.attrs['axis_inversions'].get(axis, False):
-                title_suffix = " [INVERTED]"
+            title_suffix = ""
         
-        ax1.set_title(f'Gyroscope {axis} Comparison{title_suffix}')
+        ax1.set_title(f'Gyroscope {axis} Comparison{title_suffix}', fontsize=10)
         ax1.grid(True, alpha=0.3)
         
         # Combine legends
@@ -550,14 +641,14 @@ def plot_gyroscope_comparison(df: pd.DataFrame, save_path: str = None):
             axes[i, 1].axhline(y=-0.087, color='orange', linestyle=':', alpha=0.5)
             axes[i, 1].fill_between(time, -0.087, 0.087, alpha=0.1, color='green')
             axes[i, 1].set_ylabel(f'Δ Gyro {axis} (rad/s)')
-            axes[i, 1].set_title(f'Gyro {axis} Difference (Mean: {df[diff_col].mean():.4f} rad/s, Std: {df[diff_col].std():.4f} rad/s)')
+            axes[i, 1].set_title(f'Gyro {axis} Difference\nMean: {df[diff_col].mean():.4f} rad/s, Std: {df[diff_col].std():.4f} rad/s', fontsize=10)
             axes[i, 1].legend(fontsize=8)
             axes[i, 1].grid(True, alpha=0.3)
     
     axes[2, 0].set_xlabel('Time (s)')
     axes[2, 1].set_xlabel('Time (s)')
     
-    plt.tight_layout()
+    fig.tight_layout(pad=2.0, w_pad=2.2, h_pad=1.8)
     
     # Save the plot FIRST with current backend
     if save_path:
@@ -575,8 +666,8 @@ def plot_gyroscope_comparison(df: pd.DataFrame, save_path: str = None):
 
 def plot_difference_histograms(df: pd.DataFrame, save_path: str = None):
     """Plot histograms of all differences including quaternion"""
-    fig, axes = plt.subplots(4, 3, figsize=(14, 12))
-    fig.suptitle('Distribution of Differences (ESP32 - Phone)', fontsize=14, fontweight='bold')
+    fig, axes = plt.subplots(4, 3, figsize=(15, 12.5))
+    fig.suptitle('Distribution of Differences', fontsize=12, fontweight='semibold')
     
     # Orientation differences
     diff_cols = [
@@ -639,11 +730,11 @@ def plot_difference_histograms(df: pd.DataFrame, save_path: str = None):
             
             ax.set_xlabel(f'Δ {label}')
             ax.set_ylabel('Count')
-            ax.set_title(f'{label}\nMean: {mean:.2f}, Std: {std:.2f}\n{within_threshold:.1f}% within ±{threshold}')
+            ax.set_title(f'{label}\nMean: {mean:.2f}, Std: {std:.2f}\n{within_threshold:.1f}% within ±{threshold}', fontsize=10)
             ax.legend(fontsize=8)
             ax.grid(True, alpha=0.3)
     
-    plt.tight_layout()
+    fig.tight_layout(pad=2.0, w_pad=1.8, h_pad=2.0)
     
     if save_path:
         plt.savefig(save_path, dpi=150, bbox_inches='tight')
@@ -761,6 +852,11 @@ def generate_comprehensive_report(df: pd.DataFrame, save_path: str = None):
     if 'diff_quat_angle_deg' in df.columns:
         summary_lines.append("🔄 QUATERNION ANALYSIS:")
         summary_lines.append("-" * 40)
+        if hasattr(df, 'attrs') and 'quaternion_mapping' in df.attrs:
+            summary_lines.append("  Applied quaternion mapping:")
+            summary_lines.append("    Phone: original component order")
+            summary_lines.append("    ESP32: qw ← qy, qy ← qw, qx inverted")
+            summary_lines.append("")
         quat_angle_data = df['diff_quat_angle_deg'].dropna()
         quat_mean = quat_angle_data.mean()
         quat_std = quat_angle_data.std()
