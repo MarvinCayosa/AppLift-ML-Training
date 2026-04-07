@@ -1,0 +1,17 @@
+================================================================================
+COMPREHENSIVE IMU SENSOR COMPARISON REPORT
+ESP32 vs Smartphone Sensor Analysis with Quaternion Data
+================================================================================
+
+📊 Dataset Information:
+   Total Samples: 807
+   Duration: 82.2 seconds
+   Average Sampling Rate: 9.8 Hz
+   Timestamp: 2026-03-12 20:18:52 to 2026-03-12 20:20:14
+
+🔄 QUATERNION ANALYSIS:
+----------------------------------------
+  Quaternion Angle Difference:
+    Mean:   93.25° | Std:  13.42° | Abs Mean:  93.25° | Max: 120.34°
+    Within ±5°:    0.0%
+    Within ±10°:   0.0%

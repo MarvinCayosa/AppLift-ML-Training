@@ -1,0 +1,201 @@
+================================================================================
+SVM CLASSIFIER - COMPREHENSIVE EVALUATION REPORT
+================================================================================
+
+EXECUTIVE SUMMARY
+--------------------------------------------------------------------------------
+This report presents a comprehensive evaluation of a Support Vector Machine classifier
+for exercise form quality assessment. The model achieved 78.8% test accuracy
+with 85.5% +/- 3.1% cross-validation accuracy.
+Dataset dimensionality was reduced from 258 to 60 features (76.7% reduction).
+The classifier discriminates between 3 movement quality classes: Clean, Pulling Too Fast, Releasing Too Fast.
+The model uses 241 support vectors (283.5% of training data).
+
+EXPERIMENT METADATA
+--------------------------------------------------------------------------------
+Training Date:           20260407_173541
+Random Seed:             42
+Cross-Validation:        5-Fold Stratified
+Test Set Size:           85 samples
+Training Set Size:       Remaining after 80/20 split
+SMOTE Applied:           No
+Class Imbalance Strategy: class_weight=balanced
+
+MODEL CONFIGURATION
+--------------------------------------------------------------------------------
+Algorithm:               Support Vector Machine (SVM)
+Kernel:                  rbf
+C (Regularization):      1.0
+Gamma:                   scale
+Class Weight:            None
+Probability:             True
+Cache Size:              1000 MB
+Random State:            42
+Support Vectors:         241 total
+  - Clean: 84 support vectors
+  - Pulling Too Fast: 76 support vectors
+  - Releasing Too Fast: 81 support vectors
+
+DATASET & DIMENSIONALITY ANALYSIS
+--------------------------------------------------------------------------------
+Original Feature Count:    258
+Final Feature Count:       60
+Dimensionality Reduction:  correlation_rf_importance
+Feature Reduction Rate:    76.7%
+Features Retained:         23.3%
+
+Test Set Class Distribution:
+  Clean               :  31 samples ( 36.5%)
+  Pulling Too Fast    :  29 samples ( 34.1%)
+  Releasing Too Fast  :  25 samples ( 29.4%)
+
+CROSS-VALIDATION ANALYSIS (5-FOLD STRATIFIED)
+--------------------------------------------------------------------------------
+Summary Statistics:
+  Accuracy:           0.8550 +/- 0.0314
+  Balanced Accuracy:  0.8582 +/- 0.0328
+  F1 Weighted:        0.8536 +/- 0.0305
+  F1 Macro:           0.8551 +/- 0.0302
+  Precision Macro:    0.8585 +/- 0.0319
+  Recall Macro:       0.8582 +/- 0.0328
+
+Per-Fold Detailed Results:
+Fold    Accuracy  Bal.Acc   F1-Weighted F1-Macro  Prec-Macro Rec-Macro
+--------------------------------------------------------------------------------
+   1     0.8529    0.8586      0.8496    0.8529     0.8578    0.8586
+   2     0.8971    0.8997      0.8935    0.8942     0.9010    0.8997
+   3     0.8088    0.8099      0.8083    0.8089     0.8083    0.8099
+   4     0.8806    0.8868      0.8802    0.8804     0.8819    0.8868
+   5     0.8358    0.8361      0.8365    0.8390     0.8434    0.8361
+
+Statistical Analysis:
+  Accuracy Range:     0.0882 (min: 0.8088, max: 0.8971)
+  Training Accuracy:  0.9792
+  Validation Accuracy: 0.8582
+  Generalization Gap: 0.1210
+  Coefficient of Variation: 3.67% (model stability indicator)
+  Stability Assessment: Good
+
+TEST SET PERFORMANCE
+--------------------------------------------------------------------------------
+                    precision    recall  f1-score   support
+
+             Clean       0.74      0.84      0.79        31
+  Pulling Too Fast       0.88      0.79      0.84        29
+Releasing Too Fast       0.75      0.72      0.73        25
+
+          accuracy                           0.79        85
+         macro avg       0.79      0.78      0.79        85
+      weighted avg       0.79      0.79      0.79        85
+
+CONFUSION MATRIX ANALYSIS
+--------------------------------------------------------------------------------
+Confusion Matrix (Counts):
+Actual \ Predicted          CleanPulling Too FastReleasing Too Fast
+-----------------------------------------------------------------
+Clean                            26              1              4
+Pulling Too Fast                  4             23              2
+Releasing Too Fast                5              2             18
+
+Confusion Matrix (Percentages by Actual Class):
+Actual \ Predicted          CleanPulling Too FastReleasing Too Fast
+-----------------------------------------------------------------
+Clean                         83.9%           3.2%          12.9%
+Pulling Too Fast              13.8%          79.3%           6.9%
+Releasing Too Fast            20.0%           8.0%          72.0%
+
+CLASSIFICATION METRICS
+--------------------------------------------------------------------------------
+Standard Accuracy: 0.7882
+Balanced Accuracy: 0.7839
+F1 Weighted: 0.7888
+F1 Macro: 0.7863
+
+PER-CLASS DETAILED PERFORMANCE
+--------------------------------------------------------------------------------
+Class                Precision    Recall    F1-Score    Support    Sensitivity
+--------------------------------------------------------------------------------
+Clean                   0.7429    0.8387    0.7879        31      0.8387
+Pulling Too Fast        0.8846    0.7931    0.8364        29      0.7931
+Releasing Too Fast      0.7500    0.7200    0.7347        25      0.7200
+
+Detailed Per-Class Analysis:
+
+Clean:
+  - Precision (PPV): 0.7429 - Of all predicted Clean, 74.3% were correct
+  - Recall (Sensitivity): 0.8387 - Of all actual Clean, 83.9% were identified
+  - F1-Score: 0.7879 - Harmonic mean of precision and recall
+  - Support: 31 samples in test set
+
+Pulling Too Fast:
+  - Precision (PPV): 0.8846 - Of all predicted Pulling Too Fast, 88.5% were correct
+  - Recall (Sensitivity): 0.7931 - Of all actual Pulling Too Fast, 79.3% were identified
+  - F1-Score: 0.8364 - Harmonic mean of precision and recall
+  - Support: 29 samples in test set
+
+Releasing Too Fast:
+  - Precision (PPV): 0.7500 - Of all predicted Releasing Too Fast, 75.0% were correct
+  - Recall (Sensitivity): 0.7200 - Of all actual Releasing Too Fast, 72.0% were identified
+  - F1-Score: 0.7347 - Harmonic mean of precision and recall
+  - Support: 25 samples in test set
+
+SVM-SPECIFIC ANALYSIS
+--------------------------------------------------------------------------------
+Support Vector Machine Characteristics:
+  - Kernel function: rbf
+  - Decision boundary: Maximum margin hyperplane
+  - Total support vectors: 241
+  - Support vector ratio: 283.5% of training data
+  - Regularization (C): 1.0 (lower = more regularization)
+  - Gamma: scale (kernel coefficient)
+
+Support Vectors per Class:
+  - Clean: 84 vectors (34.9%)
+  - Pulling Too Fast: 76 vectors (31.5%)
+  - Releasing Too Fast: 81 vectors (33.6%)
+
+Kernel Analysis:
+  - RBF (Radial Basis Function) kernel selected
+  - Good for non-linear decision boundaries
+  - Gamma=scale controls influence of single training example
+
+COMPREHENSIVE SUMMARY & CONCLUSIONS
+================================================================================
+Model Performance Summary:
+----------------------------------------
+- Overall Accuracy:      78.8% (Test Set)
+- Cross-Validation:      85.5% +/- 3.1% (5-fold)
+- Balanced Accuracy:     78.4%
+- F1-Score (Macro):      78.6%
+- Model Stability:       Good (CV = 3.67%)
+- Generalization Gap:    0.1210
+- Support Vector Ratio:  283.5%
+
+Key Findings:
+----------------------------------------
+- POOR: Model <85% accuracy requires significant improvement
+- EFFICIENT: 76.7% dimensionality reduction with minimal performance loss
+- CAUTION: Potential overfitting detected, consider regularization
+- COMPLEX: High support vector ratio (283.5%) may indicate overfitting
+
+Recommendations:
+----------------------------------------
+1. REQUIRES IMPROVEMENT: Consider additional data collection
+2. Implement human-in-the-loop validation
+3. Regularly retrain with new data to maintain performance
+4. Consider ensemble with RF/XGBoost for critical applications
+5. Monitor for concept drift in production environment
+6. High support vector ratio - consider reducing C or using linear kernel
+
+Technical Details:
+----------------------------------------
+- Feature Engineering:   60 sensor-derived features
+- Cross-Validation:      Stratified 5-fold with proper train/test split
+- Model Complexity:      241 support vectors
+- Data Preprocessing:    StandardScaler (CRITICAL for SVM)
+- Evaluation Metrics:    Comprehensive imbalance-aware assessment
+- Kernel Function:       rbf
+
+================================================================================
+END OF COMPREHENSIVE EVALUATION REPORT
+================================================================================

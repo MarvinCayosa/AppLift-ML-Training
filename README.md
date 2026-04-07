@@ -1,385 +1,332 @@
-# AppLift ML Training - Exercise Quality Classification Model
+# AppLift ML Training - Exercise Quality Classification
 
-## Overview
+## 📁 Project Structure
 
-This project implements a comprehensive machine learning pipeline for classifying exercise execution quality using sensor data from various fitness equipment. The system employs Random Forest classification to distinguish between proper form ("Clean") and various execution errors across multiple exercise types.
+This repository contains a complete machine learning pipeline for classifying exercise execution quality using sensor data. The codebase has been organized into logical modules for easy navigation and maintenance.
 
-## Data Gathering Methodology
-
-### Data Collection Setup
-- **Equipment Types**: Barbell, Dumbbell, Weight Stack
-- **Exercise Categories**: 
-  - Barbell: Back Squats, Bench Press
-  - Dumbbell: Concentration Curls, Overhead Extension  
-  - Weight Stack: Lateral Pulldown, Seated Leg Extension
-- **Sensor Data**: Multi-axis accelerometer/gyroscope readings at high frequency (typically 50-100Hz)
-- **Quality Classes**:
-  - **Clean**: Proper exercise execution
-  - **Uncontrolled Movement**: Jerky or inconsistent motion patterns
-  - **Inclination Asymmetry**: Uneven body positioning (Barbell exercises)
-  - **Abrupt Initiation**: Sudden start without proper setup (Dumbbell exercises)
-  - **Pulling Too Fast / Releasing Too Fast**: Incorrect tempo (Weight Stack exercises)
-
-### Data Structure
 ```
-Raw Data Format:
-- timestamp_ms: Millisecond-level timestamps
-- participant: Subject identifier
-- rep: Repetition number within a set
-- exercise_code: Numerical exercise type identifier
-- equipment_code: Numerical equipment type identifier
-- target: Quality classification (0=Clean, 1=Error Type 1, 2=Error Type 2)
-- sensor_x, sensor_y, sensor_z: Multi-axis sensor readings
-- Additional derived signals and metadata
+AppLift-ML-Training/
+├── 📚 docs/                          # All documentation
+│   ├── README.md                     # Original project documentation
+│   ├── ML_PIPELINE_MASTER_README.md  # Complete pipeline guide (START HERE!)
+│   ├── COMPARISON_GUIDE.md           # Original vs Fixed version comparison
+│   ├── BACK_SQUATS_FALSE_POSITIVE_FIX.md
+│   ├── ENCODED_LABELS_README.md
+│   └── VISUALIZER_README.md
+│
+├── 💻 src/                           # Source code
+│   ├── pipeline/                     # Data preprocessing pipeline
+│   │   ├── preprocessing_pipeline.py     # Stage 1: Data cleaning & merging
+│   │   ├── resegment_reps_fixed.py      # Stage 2: Rep boundary correction
+│   │   ├── re_labeler.py                # Stage 3: Quality label correction
+│   │   └── dataset_merger.py            # Merge multiple datasets
+│   │
+│   ├── models/                       # Model training scripts
+│   │   ├── rf_classifier_realistic.py   # ⭐ Random Forest (Fixed version)
+│   │   ├── xgb_classifier_realistic.py  # ⭐ XGBoost Classifier
+│   │   ├── svm_classifier_realistic.py  # ⭐ SVM Classifier
+│   │   ├── rf_classifier_fixed.py       # Alternative fixed version
+│   │   ├── rf_classifier.py             # ⚠️ Legacy (has data leakage)
+│   │   ├── rf_classifier_copy.py        # ⚠️ Legacy (has data leakage)
+│   │   └── model_tester.py              # Test trained models
+│   │
+│   ├── visualization/                # Visualization tools
+│   │   ├── rep_visualizer.py            # Visualize individual reps
+│   │   ├── rep_comparison_visualizer.py # Compare clean vs error reps
+│   │   ├── simple_rep_visualizer.py     # Simplified rep viewer
+│   │   ├── performance_visualizer.py    # Model performance plots
+│   │   ├── imu_comparison_gui.py        # IMU sensor comparison tool
+│   │   └── visualize_imu_comparison.py  # IMU visualization
+│   │
+│   ├── analysis/                     # Analysis & testing tools
+│   │   ├── fix_false_positives.py       # False positive analysis
+│   │   ├── test_fp_reduction.py         # Validate FP reduction
+│   │   ├── test_enhanced_report.py      # Generate detailed reports
+│   │   ├── model_comparison.py          # ⭐ Compare RF vs XGBoost vs SVM
+│   │   └── probe_codes.py               # Code exploration utility
+│   │
+│   └── utils/                        # Utility scripts
+│       ├── axis_mapping_gui.py          # Sensor axis mapping tool
+│       ├── column_remover.py            # CSV column removal utility
+│       └── fix_unicode.py               # Unicode encoding fixer
+│
+├── 📊 Data/                          # Raw sensor data
+│   ├── Barbell/
+│   ├── Dumbbell/
+│   └── Weight_Stack/
+│
+├── 📈 outputs/                       # Training outputs & results
+│   ├── output/                          # Original version outputs
+│   ├── output_fixed/                    # Fixed version outputs
+│   ├── output_realistic_random_forest/  # Realistic RF outputs
+│   ├── visualizations/                  # Generated plots
+│   ├── visualizations_chapter4/         # Chapter 4 figures
+│   └── table7_grouped_bar_chart.png
+│
+└── 🧪 tests/                         # Test data & experiments
+    ├── test_data/                       # Test datasets
+    ├── calibration_test/                # IMU calibration tests
+    ├── cloud_latency_test.csv
+    └── imu_comparison_2026-03-12T20-20-16.csv
 ```
-
-## Technical Pipeline: Step-by-Step Process
-
-### Phase 1: Data Preprocessing and Feature Engineering
-
-#### 1.1 Rep-Level Aggregation (Critical for Data Leakage Prevention)
-**Problem Addressed**: Raw sensor data contains thousands of samples per repetition, creating severe data leakage if used directly.
-
-**Solution**: Aggregate time-series data into statistical features per repetition.
-
-```python
-# For each repetition, compute:
-Statistical Features:
-- mean, std, min, max, median
-- skewness, kurtosis (distribution shape)
-- range, interquartile_range
-- coefficient_of_variation
-
-Temporal Features:  
-- peak_position (timing of maximum value)
-- peak_value (maximum amplitude)
-- zero_crossings count
-- autocorrelation at lag 1
-
-Frequency Domain:
-- dominant_frequency (FFT analysis)
-- spectral_centroid
-- spectral_rolloff
-```
-
-**Result**: Each repetition becomes one sample with ~40-80 computed features per sensor axis.
-
-#### 1.2 Data Quality Control
-- **Rep 0 Filtering**: Remove incomplete repetitions (rep=0)
-- **Missing Value Handling**: Forward-fill then median imputation
-- **Infinite Value Correction**: Replace ±inf with NaN, then median fill
-- **Outlier Detection**: Z-score based outlier flagging (optional removal)
-
-### Phase 2: Train-Test Split (Data Leakage Prevention)
-
-#### 2.1 Participant-Stratified Split
-```python
-# Ensure no participant appears in both train and test
-train_test_split(
-    X, y, 
-    test_size=0.2, 
-    stratify=y,  # Preserve class distribution
-    random_state=42
-)
-```
-
-**Critical Fix**: The pipeline ensures that:
-- Test data is NEVER used for feature selection
-- Cross-validation uses ONLY training data
-- All preprocessing fits on training data only
-
-### Phase 3: Feature Selection and Dimensionality Reduction
-
-#### 3.1 Correlation Pruning
-**Objective**: Remove redundant features that carry similar information.
-
-```python
-Algorithm:
-1. Compute correlation matrix from TRAINING data only
-2. For each pair with |correlation| > threshold (default 0.90):
-   - Apply preference heuristic:
-     * Prefer: peak_position, skewness, kurtosis (robust shape features)
-     * De-prioritize: peak_value, min/max (noise-sensitive)
-   - If tied, keep higher-variance feature
-3. Remove redundant features from both train and test sets
-```
-
-#### 3.2 Random Forest Importance Pruning
-```python
-Process:
-1. Train Random Forest on current feature set (training data only)
-2. Rank features by importance scores
-3. Select top-K features (default: 40-60 for optimal performance)
-4. Retrain model on reduced feature set
-```
-
-#### 3.3 Recursive Feature Elimination (RFE) [Alternative]
-```python
-RFE Process:
-1. Start with all features
-2. Train model, rank by importance
-3. Remove least important features (step size: 10)
-4. Repeat until target feature count reached
-5. Cross-validate to find optimal feature count
-```
-
-### Phase 4: Class Imbalance Handling
-
-#### 4.1 Imbalance Strategy Selection
-The pipeline analyzes class distribution and recommends strategies:
-
-- **Ratio < 1.5:1**: No intervention needed
-- **Ratio 1.5-3:1**: Apply `class_weight='balanced'` (cost-sensitive learning)
-- **Ratio > 3:1**: SMOTE oversampling + class weighting
-
-#### 4.2 SMOTE Implementation (When Applicable)
-```python
-SMOTE-Aware Cross-Validation:
-1. For each CV fold:
-   - Apply SMOTE to training fold only
-   - Validate on unmodified validation fold
-   - This prevents synthetic samples from leaking across folds
-
-2. Final Model Training:
-   - Apply SMOTE to entire training set
-   - Train final model on balanced data
-   - Test on original (unmodified) test set
-```
-
-### Phase 5: Model Training and Hyperparameter Optimization
-
-#### 5.1 Random Forest Configuration
-```python
-Hyperparameter Search Space:
-- n_estimators: [100, 200, 500, 1000]
-- max_depth: [10, 15, 20, 25, None]
-- min_samples_split: [2, 5, 10]
-- min_samples_leaf: [1, 2, 4]  
-- max_features: ['sqrt', 'log2', None]
-- bootstrap: [True, False]
-- criterion: ['gini', 'entropy']
-- class_weight: ['balanced', 'balanced_subsample', None]
-```
-
-#### 5.2 Optimization Strategies
-1. **Random Search** (Default): 100-200 iterations, faster exploration
-2. **Grid Search** (Comprehensive): Full parameter space, slower but thorough
-3. **Default Parameters** (Quick): Sensible defaults for rapid prototyping
-
-### Phase 6: Cross-Validation (Fixed Implementation)
-
-#### 6.1 Proper CV Implementation
-**Critical Fix**: CV now uses ONLY training data to prevent data leakage.
-
-```python
-Original (INCORRECT):
-cv_scores = cross_val_score(model, X_full, y_full, cv=5)  # LEAKED TEST DATA
-
-Fixed (CORRECT):  
-cv_scores = cross_val_score(model, X_train, y_train, cv=5)  # TRAINING ONLY
-```
-
-#### 6.2 Stratified K-Fold Cross-Validation
-- **5-Fold Stratified**: Maintains class distribution in each fold
-- **Metrics**: Balanced accuracy (primary), F1-weighted, F1-macro
-- **Scaling**: StandardScaler fit within each fold
-- **SMOTE**: Applied within each fold when requested
-
-### Phase 7: Model Evaluation
-
-#### 7.1 Comprehensive Metrics
-```python
-Primary Metrics:
-- Balanced Accuracy: Accounts for class imbalance
-- F1-Weighted: Harmonic mean of precision/recall, weighted by support
-- F1-Macro: Unweighted average across classes
-
-Secondary Metrics:
-- Standard Accuracy: Overall correct predictions
-- Per-class Precision/Recall/F1: Individual class performance
-- Confusion Matrix: Detailed classification breakdown
-```
-
-#### 7.2 Generalization Assessment
-```python
-Overfitting Detection:
-- Training Score: Model performance on training data
-- CV Score: Cross-validation performance  
-- Gap Analysis: Train_score - CV_score
-  * Gap > 0.15: Likely overfitting
-  * Gap < 0.05: Good generalization
-  * CV_score < 0.6: Underfitting
-```
-
-### Phase 8: Model Export and Deployment
-
-#### 8.1 Model Artifacts
-```python
-Exported Components:
-- model.pkl: Trained RandomForestClassifier
-- scaler.pkl: Fitted StandardScaler  
-- feature_names.pkl: Selected feature list
-- model_metadata.json: Training configuration and metrics
-```
-
-#### 8.2 Visualization Outputs
-- **Confusion Matrix**: Classification accuracy by class
-- **Feature Importance**: Top contributing features
-- **ROC Curves**: Per-class discrimination ability
-- **Precision-Recall Curves**: Performance across decision thresholds
-- **Cross-Validation Scores**: Fold-by-fold performance tracking
-
-### Phase 9: Performance Analysis and Validation
-
-#### 9.1 Expected Performance Ranges
-Based on corrected pipeline (without data leakage):
-- **Cross-Validation Scores**: 0.70-0.85 (realistic range)
-- **Test Set Performance**: 0.65-0.80 (conservative estimate)
-- **Performance Drop**: 5-15% lower than original (due to leak fixes)
-
-#### 9.2 Model Interpretation
-```python
-Feature Importance Analysis:
-1. Individual feature contributions
-2. Feature category rankings (temporal vs statistical vs frequency)
-3. Exercise-specific feature patterns
-4. Equipment-specific discriminative features
-```
-
-## Key Technical Improvements (Fixed Version)
-
-### Data Leakage Prevention
-1. **Cross-Validation Fix**: Uses only training data (X_train, y_train)
-2. **Feature Selection Isolation**: Correlations computed from training data only  
-3. **Scaling Consistency**: Scaler fit on training, applied to test
-4. **SMOTE Isolation**: Synthetic samples generated within CV folds only
-
-### Enhanced Pipeline Reliability
-1. **Robust Feature Engineering**: Handles missing values and infinite values
-2. **Stratified Splitting**: Maintains class balance across train/test
-3. **Comprehensive Validation**: Multiple metrics for balanced evaluation
-4. **Reproducible Results**: Fixed random seeds throughout pipeline
-
-### Performance Optimization
-1. **Efficient Hyperparameter Search**: Random search for faster exploration
-2. **Parallel Processing**: Multi-core training and validation
-3. **Memory Management**: Chunked processing for large datasets
-4. **Feature Selection**: Reduces dimensionality while preserving signal
-
-## Usage Instructions
-
-### Basic Pipeline Execution
-```bash
-python rf_classifier_fixed.py
-```
-
-### Pipeline Steps
-1. **File Selection**: Choose preprocessed CSV dataset
-2. **Feature Selection**: Interactive UI for feature inclusion/exclusion  
-3. **Configuration**: Set class imbalance and dimensionality reduction strategies
-4. **Training**: Automated hyperparameter search and model training
-5. **Validation**: Cross-validation and test set evaluation
-6. **Export**: Model artifacts and comprehensive reports
-
-### Output Structure
-```
-output_fixed/
-├── models/
-│   └── [Exercise_Name]/
-│       ├── model.pkl
-│       ├── scaler.pkl  
-│       ├── feature_names.pkl
-│       ├── model_metadata.json
-│       └── classification_report_[timestamp].txt
-├── visualizations/
-│   ├── confusion_matrix.png
-│   ├── feature_importance.png
-│   ├── roc_curves.png
-│   └── cv_scores.png
-└── comparison_with_original/
-    └── performance_comparison.txt
-```
-
-## Technical Specifications
-
-### Dependencies
-```python
-Core ML Libraries:
-- scikit-learn >= 1.0.0: ML algorithms and evaluation
-- pandas >= 1.3.0: Data manipulation
-- numpy >= 1.21.0: Numerical computing
-
-Visualization:
-- matplotlib >= 3.5.0: Plotting and visualization
-- seaborn >= 0.11.0: Statistical visualization
-
-Class Imbalance:
-- imbalanced-learn >= 0.8.0: SMOTE and sampling techniques
-
-UI Components:
-- tkinter: Feature selection interface (built-in)
-```
-
-### Computational Requirements
-- **RAM**: 4-8GB (depending on dataset size)
-- **CPU**: Multi-core recommended for hyperparameter search
-- **Storage**: ~100MB per trained model (including visualizations)
-- **Runtime**: 5-30 minutes (depending on optimization strategy)
-
-## Model Performance Interpretation
-
-### Cross-Validation vs Test Performance
-The fixed pipeline shows realistic performance metrics:
-- **CV Scores**: Represent expected performance on new data from same distribution
-- **Test Scores**: Validation of generalization to completely unseen data
-- **Performance Gap**: 5-15% difference is normal and indicates good pipeline health
-
-### Class-Specific Performance
-- **Clean Form**: Typically highest accuracy (most samples, clearest signal)
-- **Error Types**: Variable performance based on:
-  - Class frequency in training data
-  - Distinctiveness of error patterns
-  - Sensor sensitivity to specific movement errors
-
-### Feature Importance Insights
-Common high-importance features:
-- **Temporal Features**: peak_position, zero_crossings (timing patterns)
-- **Statistical Features**: skewness, kurtosis (movement quality indicators)  
-- **Movement-Specific**: Axis-dependent based on exercise biomechanics
-
-## Validation and Quality Assurance
-
-### Pipeline Validation Steps
-1. **Data Integrity**: Verify no test data leakage
-2. **Feature Quality**: Ensure no constant or highly correlated features
-3. **Class Balance**: Confirm appropriate imbalance handling
-4. **Model Stability**: Cross-validation score consistency
-5. **Generalization**: Reasonable train-test performance gap
-
-### Quality Metrics Thresholds
-- **Minimum CV Score**: 0.60 (balanced accuracy)
-- **Maximum Overfitting Gap**: 0.20 (train - CV)
-- **Feature Importance Coverage**: Top 10 features contribute >60% importance
-- **Class Performance**: No class with F1-score < 0.40
-
-## Future Enhancements
-
-### Potential Improvements
-1. **Deep Learning**: CNN or LSTM for temporal pattern recognition
-2. **Ensemble Methods**: Combine RF with other algorithms
-3. **Real-time Processing**: Online learning for live feedback
-4. **Multi-sensor Fusion**: Integrate additional sensor modalities
-5. **Transfer Learning**: Pre-trained models across exercise types
-
-### Research Directions
-1. **Personalized Models**: Individual-specific error detection
-2. **Exercise Progression**: Difficulty and form evolution tracking
-3. **Biomechanical Analysis**: Joint angle and force estimation
-4. **Fatigue Detection**: Performance degradation identification
 
 ---
 
-**Author**: AppLift ML Training Pipeline  
-**Version**: 2.0 (Fixed Data Leakage Issues)  
-**Date**: February 2026  
-**License**: Academic Use Only
+## 🚀 Quick Start
+
+### For New Users
+
+1. **Read the documentation**:
+   ```bash
+   # Start with the master pipeline guide
+   docs/ML_PIPELINE_MASTER_README.md
+   ```
+
+2. **Preprocess your data**:
+   ```bash
+   python src/pipeline/preprocessing_pipeline.py
+   ```
+
+3. **Resegment reps** (recommended):
+   ```bash
+   python src/pipeline/resegment_reps_fixed.py
+   ```
+
+4. **Train model**:
+   ```bash
+   python src/models/rf_classifier_realistic.py
+   ```
+
+### For Experienced Users
+
+**Full pipeline in one go**:
+```bash
+# 1. Preprocess
+python src/pipeline/preprocessing_pipeline.py
+
+# 2. Resegment
+python src/pipeline/resegment_reps_fixed.py
+
+# 3. Train Random Forest
+python src/models/rf_classifier_realistic.py
+
+# 4. Train XGBoost (for comparison)
+python src/models/xgb_classifier_realistic.py
+
+# 5. Train SVM (for comparison)
+python src/models/svm_classifier_realistic.py
+
+# 6. Compare models
+python src/analysis/model_comparison.py
+```
+
+---
+
+## 📖 Documentation Guide
+
+| Document | Purpose | When to Read |
+|----------|---------|--------------|
+| **ML_PIPELINE_MASTER_README.md** | Complete pipeline guide | Start here! |
+| **README.md** (docs/) | Original project overview | For background |
+| **COMPARISON_GUIDE.md** | Original vs Fixed comparison | Understanding fixes |
+| **BACK_SQUATS_FALSE_POSITIVE_FIX.md** | FP reduction strategy | Reducing false alarms |
+| **VISUALIZER_README.md** | Visualization tools guide | Using viz tools |
+
+---
+
+## ⚠️ Important Notes
+
+### Which Model Training Script to Use?
+
+**✅ USE**: 
+- `src/models/rf_classifier_realistic.py` - Random Forest (proven, reliable)
+- `src/models/xgb_classifier_realistic.py` - XGBoost (often better performance)
+- `src/models/svm_classifier_realistic.py` - SVM (good for smaller datasets)
+
+**❌ AVOID**: 
+- `rf_classifier.py` - Has data leakage
+- `rf_classifier_copy.py` - Has data leakage
+- `rf_classifier_fixed.py` - Use realistic version instead
+
+### Model Comparison
+
+After training both models, compare their performance:
+```bash
+python src/analysis/model_comparison.py
+```
+
+This generates:
+- Side-by-side performance metrics
+- Visualization of differences
+- Recommendation on which model to use
+
+### Output Directories
+
+- **outputs/realistic/** - Random Forest model outputs
+- **outputs/xgboost/** - XGBoost model outputs
+- **outputs/svm/** - SVM model outputs
+- **outputs/comparison/** - Model comparison results
+- **outputs/output_fixed/** - Legacy fixed version outputs
+- **outputs/output/** - Legacy original outputs (has data leakage)
+
+---
+
+## 🔧 Installation
+
+### Prerequisites
+```bash
+Python 3.8+
+pip or conda
+```
+
+### Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### Required Packages
+- scikit-learn >= 1.0.0
+- pandas >= 1.3.0
+- numpy >= 1.21.0
+- matplotlib >= 3.5.0
+- seaborn >= 0.11.0
+- imbalanced-learn >= 0.8.0
+
+---
+
+## 📊 Pipeline Stages
+
+### Stage 1: Preprocessing
+**Script**: `src/pipeline/preprocessing_pipeline.py`
+- Merge multiple CSV files
+- Clean data quality issues
+- Handle missing values
+- Remove outliers
+
+### Stage 2: Resegmentation
+**Script**: `src/pipeline/resegment_reps_fixed.py`
+- Fix rep boundaries using valley detection
+- Ensure continuous rep segments
+- Exercise-specific duration constraints
+
+### Stage 3: Relabeling
+**Script**: `src/pipeline/re_labeler.py`
+- Visual rep inspection
+- Quality label correction
+- Rep boundary editing
+- Metadata updates
+
+### Stage 4-7: Feature Engineering & Training
+**Script**: `src/models/rf_classifier_realistic.py`
+- Extract statistical features per rep
+- Dimensionality reduction
+- Class imbalance handling
+- Random Forest training
+- Model evaluation & export
+
+---
+
+## 🎯 Common Tasks
+
+### Visualize Reps
+```bash
+# Single rep viewer
+python src/visualization/rep_visualizer.py
+
+# Compare clean vs error reps
+python src/visualization/rep_comparison_visualizer.py
+```
+
+### Analyze False Positives
+```bash
+# Analyze FP patterns
+python src/analysis/fix_false_positives.py
+
+# Test FP reduction
+python src/analysis/test_fp_reduction.py
+```
+
+### Test Trained Model
+```bash
+python src/models/model_tester.py
+```
+
+### Utility Tasks
+```bash
+# Remove unwanted columns
+python src/utils/column_remover.py
+
+# Map sensor axes
+python src/utils/axis_mapping_gui.py
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### Import Errors After Reorganization
+
+If you get import errors, update your Python path:
+
+```python
+import sys
+from pathlib import Path
+
+# Add src to path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root / 'src'))
+```
+
+Or run from project root:
+```bash
+cd /path/to/AppLift-ML-Training
+python src/models/rf_classifier_realistic.py
+```
+
+### Low Model Performance
+
+1. Check you're using `rf_classifier_realistic.py`
+2. Ensure data is resegmented
+3. Review data quality in preprocessing
+4. Check class imbalance settings
+5. See troubleshooting in `docs/ML_PIPELINE_MASTER_README.md`
+
+---
+
+## 📝 Version History
+
+### v2.1 (March 2026) - Current
+- ✅ Reorganized codebase into logical modules
+- ✅ Created comprehensive master documentation
+- ✅ Separated docs, src, outputs, and tests
+- ✅ Improved project navigation
+
+### v2.0 (March 2026)
+- Fixed data leakage in cross-validation
+- Fixed SMOTE application
+- Added false positive reduction
+- Created master pipeline documentation
+
+### v1.0 (February 2026)
+- Initial pipeline implementation
+
+---
+
+## 📧 Support
+
+For questions or issues:
+1. Check `docs/ML_PIPELINE_MASTER_README.md`
+2. Review troubleshooting section
+3. Check existing documentation in `docs/`
+
+---
+
+## 📄 License
+
+Academic and research use only. Commercial use requires permission.
+
+---
+
+**Last Updated**: March 28, 2026  
+**Version**: 2.1  
+**Status**: Production Ready

@@ -1,0 +1,180 @@
+{
+  "model_type": "SVC",
+  "training_date": "20260407_172612",
+  "feature_names": [
+    "filteredZ_rms",
+    "accelZ_energy",
+    "gyroY_jerk_rms",
+    "accelZ_p25",
+    "avg_sample_rate",
+    "filteredZ_range",
+    "gyroY_energy",
+    "accelZ_peak_value",
+    "gyroY_range",
+    "accelZ_iqr",
+    "filteredMag_iqr",
+    "filteredMag_range",
+    "accelMag_min",
+    "accelMag_jerk_max",
+    "filteredY_range",
+    "accelMag_diff_std",
+    "filteredMag_p75",
+    "filteredMag_kurtosis",
+    "filteredMag_p25",
+    "filteredY_kurtosis",
+    "accelMag_skew",
+    "gyroY_iqr",
+    "filteredMag_rms",
+    "gyroZ_energy",
+    "filteredY_iqr",
+    "filteredMag_min",
+    "gyroZ_diff_std",
+    "accelX_diff_std",
+    "rep_duration_ms",
+    "accelY_max",
+    "accelZ_range",
+    "filteredMag_max",
+    "accelMag_max",
+    "gyroX_iqr",
+    "accelX_smoothness",
+    "filteredX_range",
+    "filteredMag_skew",
+    "gyroX_energy",
+    "gyroY_kurtosis",
+    "gyroY_p25",
+    "accelMag_range",
+    "gyroZ_max",
+    "accelY_skew",
+    "accelX_peak_position",
+    "accelY_p75",
+    "filteredMag_median",
+    "gyroY_p75",
+    "filteredY_skew",
+    "accelY_energy",
+    "accelY_diff_max",
+    "filteredY_jerk_mean",
+    "accelMag_median",
+    "accelY_min",
+    "accelY_std",
+    "gyroX_max",
+    "filteredMag_jerk_mean",
+    "accelX_p25",
+    "accelY_kurtosis",
+    "accelMag_p75",
+    "accelMag_rms"
+  ],
+  "n_features": 60,
+  "n_classes": 3,
+  "class_names": {
+    "0": "Clean",
+    "1": "Uncontrolled Movement",
+    "2": "Inclination Asymmetry"
+  },
+  "metrics": {
+    "test_accuracy": 0.8811881188118812,
+    "test_balanced_accuracy": 0.8777246145667199,
+    "test_f1_weighted": 0.8815417256011316,
+    "test_f1_macro": 0.8822150072150072,
+    "cv_accuracy_mean": 0.9008333333333333,
+    "cv_accuracy_std": 0.023184662558697666,
+    "cv_balanced_accuracy_mean": 0.8990225349598887,
+    "cv_balanced_accuracy_std": 0.025983931362821268
+  },
+  "hyperparameters": {
+    "C": 1.0,
+    "break_ties": false,
+    "cache_size": 1000,
+    "class_weight": null,
+    "coef0": 0.0,
+    "decision_function_shape": "ovr",
+    "degree": 3,
+    "gamma": "scale",
+    "kernel": "rbf",
+    "max_iter": -1,
+    "probability": true,
+    "random_state": 42,
+    "shrinking": true,
+    "tol": 0.001,
+    "verbose": false
+  },
+  "n_support_vectors": 250,
+  "support_vectors_per_class": [
+    69,
+    108,
+    73
+  ],
+  "imbalance_strategy": {
+    "use_imbalance_strategy": false,
+    "use_smote": false,
+    "class_weight": null,
+    "imbalance_ratio": 1.2773109243697478,
+    "class_distribution": {
+      "2": 119,
+      "1": 152,
+      "0": 132
+    },
+    "verdict": "[OK] BALANCED"
+  },
+  "dimensionality_reduction": {
+    "method": "correlation_rf_importance",
+    "initial_feature_count": 258,
+    "final_feature_count": 60,
+    "reduction_percent": 76.74418604651163,
+    "steps": [
+      {
+        "step": "correlation_pruning",
+        "threshold": 0.9,
+        "high_correlation_pairs": 132,
+        "dropped_features": 132,
+        "kept_features": 126
+      },
+      {
+        "step": "rf_importance_pruning",
+        "top_k": 60,
+        "kept_features": 60,
+        "top_features_preview": [
+          {
+            "feature": "filteredZ_rms",
+            "importance": 0.11383506535562318
+          },
+          {
+            "feature": "accelZ_energy",
+            "importance": 0.08388003752972066
+          },
+          {
+            "feature": "gyroY_jerk_rms",
+            "importance": 0.07740433493646406
+          },
+          {
+            "feature": "accelZ_p25",
+            "importance": 0.06242833819927049
+          },
+          {
+            "feature": "avg_sample_rate",
+            "importance": 0.05268221799096875
+          },
+          {
+            "feature": "filteredZ_range",
+            "importance": 0.0486616675121748
+          },
+          {
+            "feature": "gyroY_energy",
+            "importance": 0.0450761229890279
+          },
+          {
+            "feature": "accelZ_peak_value",
+            "importance": 0.044159574575183186
+          },
+          {
+            "feature": "gyroY_range",
+            "importance": 0.034225944724234084
+          },
+          {
+            "feature": "accelZ_iqr",
+            "importance": 0.021859898314445816
+          }
+        ]
+      }
+    ]
+  }
+}

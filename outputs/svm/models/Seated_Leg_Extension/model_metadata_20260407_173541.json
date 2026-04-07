@@ -1,0 +1,180 @@
+{
+  "model_type": "SVC",
+  "training_date": "20260407_173541",
+  "feature_names": [
+    "accelZ_peak_position",
+    "accelZ_min",
+    "accelMag_min",
+    "accelZ_range",
+    "filteredZ_skew",
+    "accelZ_smoothness",
+    "filteredZ_kurtosis",
+    "filteredZ_max",
+    "accelY_peak_position",
+    "accelX_energy",
+    "filteredZ_min",
+    "accelY_mean",
+    "accelY_max",
+    "accelMag_skew",
+    "gyroZ_peak_position",
+    "gyroX_max",
+    "gyroX_peak_position",
+    "filteredY_rms",
+    "filteredMag_peak_position",
+    "gyroZ_kurtosis",
+    "gyroX_min",
+    "filteredX_energy",
+    "rep_duration_ms",
+    "gyroY_peak_position",
+    "accelX_range",
+    "avg_sample_rate",
+    "accelY_range",
+    "gyroY_energy",
+    "accelX_rms",
+    "filteredZ_p75",
+    "gyroY_range",
+    "gyroX_skew",
+    "accelX_peak_position",
+    "accelX_iqr",
+    "accelY_rms",
+    "accelX_p75",
+    "gyroZ_max",
+    "gyroZ_energy",
+    "accelX_smoothness",
+    "gyroX_range",
+    "filteredY_energy",
+    "ldlj",
+    "accelY_smoothness",
+    "gyroX_mean",
+    "accelY_energy",
+    "accelZ_median",
+    "gyroY_min",
+    "accelY_iqr",
+    "gyroY_max",
+    "filteredZ_iqr",
+    "accelMag_kurtosis",
+    "gyroX_kurtosis",
+    "accelZ_p75",
+    "gyroZ_range",
+    "gyroZ_jerk_mean",
+    "filteredY_peak_position",
+    "gyroY_kurtosis",
+    "accelY_min",
+    "gyroZ_mean",
+    "filteredZ_p25"
+  ],
+  "n_features": 60,
+  "n_classes": 3,
+  "class_names": {
+    "0": "Clean",
+    "1": "Pulling Too Fast",
+    "2": "Releasing Too Fast"
+  },
+  "metrics": {
+    "test_accuracy": 0.788235294117647,
+    "test_balanced_accuracy": 0.7839377085650723,
+    "test_f1_weighted": 0.7887780566772162,
+    "test_f1_macro": 0.7863121005978148,
+    "cv_accuracy_mean": 0.8550482879719052,
+    "cv_accuracy_std": 0.03139580669452976,
+    "cv_balanced_accuracy_mean": 0.8582001017035342,
+    "cv_balanced_accuracy_std": 0.032767804851926444
+  },
+  "hyperparameters": {
+    "C": 1.0,
+    "break_ties": false,
+    "cache_size": 1000,
+    "class_weight": null,
+    "coef0": 0.0,
+    "decision_function_shape": "ovr",
+    "degree": 3,
+    "gamma": "scale",
+    "kernel": "rbf",
+    "max_iter": -1,
+    "probability": true,
+    "random_state": 42,
+    "shrinking": true,
+    "tol": 0.001,
+    "verbose": false
+  },
+  "n_support_vectors": 241,
+  "support_vectors_per_class": [
+    84,
+    76,
+    81
+  ],
+  "imbalance_strategy": {
+    "use_imbalance_strategy": false,
+    "use_smote": false,
+    "class_weight": null,
+    "imbalance_ratio": 1.288659793814433,
+    "class_distribution": {
+      "1": 116,
+      "2": 97,
+      "0": 125
+    },
+    "verdict": "[OK] BALANCED"
+  },
+  "dimensionality_reduction": {
+    "method": "correlation_rf_importance",
+    "initial_feature_count": 258,
+    "final_feature_count": 60,
+    "reduction_percent": 76.74418604651163,
+    "steps": [
+      {
+        "step": "correlation_pruning",
+        "threshold": 0.9,
+        "high_correlation_pairs": 150,
+        "dropped_features": 150,
+        "kept_features": 108
+      },
+      {
+        "step": "rf_importance_pruning",
+        "top_k": 60,
+        "kept_features": 60,
+        "top_features_preview": [
+          {
+            "feature": "accelZ_peak_position",
+            "importance": 0.1039366709494294
+          },
+          {
+            "feature": "accelZ_min",
+            "importance": 0.07451174181942867
+          },
+          {
+            "feature": "accelMag_min",
+            "importance": 0.0741432544005453
+          },
+          {
+            "feature": "accelZ_range",
+            "importance": 0.07051246125781813
+          },
+          {
+            "feature": "filteredZ_skew",
+            "importance": 0.06873791686312902
+          },
+          {
+            "feature": "accelZ_smoothness",
+            "importance": 0.06741481305180314
+          },
+          {
+            "feature": "filteredZ_kurtosis",
+            "importance": 0.05325129089363787
+          },
+          {
+            "feature": "filteredZ_max",
+            "importance": 0.03692060890279734
+          },
+          {
+            "feature": "accelY_peak_position",
+            "importance": 0.020213533397140205
+          },
+          {
+            "feature": "accelX_energy",
+            "importance": 0.017631957543519098
+          }
+        ]
+      }
+    ]
+  }
+}

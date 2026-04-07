@@ -1,0 +1,180 @@
+{
+  "model_type": "SVC",
+  "training_date": "20260407_172905",
+  "feature_names": [
+    "ldlj",
+    "gyroY_diff_std",
+    "gyroX_rms",
+    "accelZ_energy",
+    "gyroX_energy",
+    "accelZ_rms",
+    "filteredZ_range",
+    "gyroY_energy",
+    "gyroX_jerk_max",
+    "gyroX_peak_value",
+    "accelZ_p25",
+    "accelX_range",
+    "accelX_diff_std",
+    "rep_duration_ms",
+    "accelZ_range",
+    "filteredMag_iqr",
+    "gyroX_diff_std",
+    "gyroY_peak_value",
+    "filteredMag_range",
+    "filteredMag_max",
+    "accelZ_min",
+    "filteredMag_p25",
+    "gyroZ_energy",
+    "accelZ_p75",
+    "gyroZ_diff_std",
+    "filteredX_range",
+    "filteredY_range",
+    "filteredY_jerk_mean",
+    "accelX_jerk_max",
+    "accelZ_diff_std",
+    "filteredMag_min",
+    "accelMag_peak_position",
+    "gyroZ_rms",
+    "gyroY_iqr",
+    "accelMag_jerk_mean",
+    "accelX_p75",
+    "avg_sample_rate",
+    "filteredMag_median",
+    "accelX_iqr",
+    "gyroX_iqr",
+    "accelY_jerk_mean",
+    "filteredX_jerk_max",
+    "filteredY_skew",
+    "accelZ_iqr",
+    "filteredMag_peak_position",
+    "accelY_std",
+    "filteredMag_jerk_mean",
+    "gyroZ_kurtosis",
+    "filteredMag_skew",
+    "accelMag_max",
+    "accelMag_range",
+    "accelZ_jerk_max",
+    "accelY_energy",
+    "accelX_energy",
+    "filteredY_rms",
+    "accelMag_p75",
+    "accelMag_std",
+    "accelY_range",
+    "gyroZ_max",
+    "accelMag_min"
+  ],
+  "n_features": 60,
+  "n_classes": 3,
+  "class_names": {
+    "0": "Clean",
+    "1": "Uncontrolled Movement",
+    "2": "Inclination Asymmetry"
+  },
+  "metrics": {
+    "test_accuracy": 0.8818181818181818,
+    "test_balanced_accuracy": 0.8643517402138091,
+    "test_f1_weighted": 0.8817580009485028,
+    "test_f1_macro": 0.8622534028902081,
+    "cv_accuracy_mean": 0.8793364681295716,
+    "cv_accuracy_std": 0.03619584994958253,
+    "cv_balanced_accuracy_mean": 0.8579465462074157,
+    "cv_balanced_accuracy_std": 0.0438888712376157
+  },
+  "hyperparameters": {
+    "C": 1.0,
+    "break_ties": false,
+    "cache_size": 1000,
+    "class_weight": "balanced",
+    "coef0": 0.0,
+    "decision_function_shape": "ovr",
+    "degree": 3,
+    "gamma": "scale",
+    "kernel": "rbf",
+    "max_iter": -1,
+    "probability": true,
+    "random_state": 42,
+    "shrinking": true,
+    "tol": 0.001,
+    "verbose": false
+  },
+  "n_support_vectors": 251,
+  "support_vectors_per_class": [
+    108,
+    76,
+    67
+  ],
+  "imbalance_strategy": {
+    "use_imbalance_strategy": true,
+    "use_smote": true,
+    "class_weight": "balanced",
+    "imbalance_ratio": 2.1666666666666665,
+    "class_distribution": {
+      "0": 221,
+      "1": 102,
+      "2": 116
+    },
+    "verdict": "[WARNING]  MODERATE IMBALANCE"
+  },
+  "dimensionality_reduction": {
+    "method": "correlation_rf_importance",
+    "initial_feature_count": 258,
+    "final_feature_count": 60,
+    "reduction_percent": 76.74418604651163,
+    "steps": [
+      {
+        "step": "correlation_pruning",
+        "threshold": 0.9,
+        "high_correlation_pairs": 122,
+        "dropped_features": 122,
+        "kept_features": 136
+      },
+      {
+        "step": "rf_importance_pruning",
+        "top_k": 60,
+        "kept_features": 60,
+        "top_features_preview": [
+          {
+            "feature": "ldlj",
+            "importance": 0.05768055249771513
+          },
+          {
+            "feature": "gyroY_diff_std",
+            "importance": 0.04992684058041091
+          },
+          {
+            "feature": "gyroX_rms",
+            "importance": 0.048813922937941706
+          },
+          {
+            "feature": "accelZ_energy",
+            "importance": 0.04758659752146879
+          },
+          {
+            "feature": "gyroX_energy",
+            "importance": 0.04348202944029695
+          },
+          {
+            "feature": "accelZ_rms",
+            "importance": 0.04146947371445528
+          },
+          {
+            "feature": "filteredZ_range",
+            "importance": 0.04014396463894664
+          },
+          {
+            "feature": "gyroY_energy",
+            "importance": 0.03630771280246327
+          },
+          {
+            "feature": "gyroX_jerk_max",
+            "importance": 0.03533224632163459
+          },
+          {
+            "feature": "gyroX_peak_value",
+            "importance": 0.0320778987922004
+          }
+        ]
+      }
+    ]
+  }
+}

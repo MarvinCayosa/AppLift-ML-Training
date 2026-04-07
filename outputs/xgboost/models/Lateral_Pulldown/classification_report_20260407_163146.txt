@@ -1,0 +1,228 @@
+================================================================================
+XGBOOST CLASSIFIER - COMPREHENSIVE EVALUATION REPORT
+================================================================================
+
+EXECUTIVE SUMMARY
+--------------------------------------------------------------------------------
+This report presents a comprehensive evaluation of an XGBoost classifier
+for exercise form quality assessment. The model achieved 96.6% test accuracy
+with 92.6% +/- 2.4% cross-validation accuracy.
+Dataset dimensionality was reduced from 258 to 60 features (76.7% reduction).
+The classifier discriminates between 3 movement quality classes: Clean, Pulling Too Fast, Releasing Too Fast.
+
+EXPERIMENT METADATA
+--------------------------------------------------------------------------------
+Training Date:           20260407_163146
+Random Seed:             42
+Cross-Validation:        5-Fold Stratified
+Test Set Size:           145 samples
+Training Set Size:       Remaining after 80/20 split
+SMOTE Applied:           No
+Class Imbalance Strategy: scale_pos_weight
+
+MODEL CONFIGURATION
+--------------------------------------------------------------------------------
+Algorithm:               XGBoost Classifier (Gradient Boosting)
+n_estimators:            200
+max_depth:               6
+learning_rate:           0.1
+min_child_weight:        3
+gamma:                   0.1
+subsample:               0.8
+colsample_bytree:        0.8
+reg_alpha (L1):          0.1
+reg_lambda (L2):         1.0
+scale_pos_weight:        1.0
+tree_method:             hist
+objective:               multi:softprob
+eval_metric:             mlogloss
+random_state:            42
+
+DATASET & DIMENSIONALITY ANALYSIS
+--------------------------------------------------------------------------------
+Original Feature Count:    258
+Final Feature Count:       60
+Dimensionality Reduction:  correlation_rf_importance
+Feature Reduction Rate:    76.7%
+Features Retained:         23.3%
+
+Test Set Class Distribution:
+  Clean               :  65 samples ( 44.8%)
+  Pulling Too Fast    :  41 samples ( 28.3%)
+  Releasing Too Fast  :  39 samples ( 26.9%)
+
+CROSS-VALIDATION ANALYSIS (5-FOLD STRATIFIED)
+--------------------------------------------------------------------------------
+Summary Statistics:
+  Accuracy:           0.9255 +/- 0.0238
+  Balanced Accuracy:  0.9211 +/- 0.0283
+  F1 Weighted:        0.9254 +/- 0.0240
+  F1 Macro:           0.9256 +/- 0.0238
+  Precision Macro:    0.9340 +/- 0.0163
+  Recall Macro:       0.9211 +/- 0.0283
+
+Per-Fold Detailed Results:
+Fold    Accuracy  Bal.Acc   F1-Weighted F1-Macro  Prec-Macro Rec-Macro
+--------------------------------------------------------------------------------
+   1     0.9397    0.9391      0.9397    0.9409     0.9429    0.9391
+   2     0.9138    0.9081      0.9136    0.9116     0.9157    0.9081
+   3     0.9569    0.9559      0.9568    0.9559     0.9586    0.9559
+   4     0.9304    0.9286      0.9306    0.9320     0.9363    0.9286
+   5     0.8870    0.8739      0.8864    0.8877     0.9167    0.8739
+
+Statistical Analysis:
+  Accuracy Range:     0.0699 (min: 0.8870, max: 0.9569)
+  Training Accuracy:  1.0000
+  Validation Accuracy: 0.9211
+  Generalization Gap: 0.0789
+  Coefficient of Variation: 2.57% (model stability indicator)
+  Stability Assessment: Good
+
+TEST SET PERFORMANCE
+--------------------------------------------------------------------------------
+                    precision    recall  f1-score   support
+
+             Clean       0.97      0.97      0.97        65
+  Pulling Too Fast       0.97      0.93      0.95        41
+Releasing Too Fast       0.95      1.00      0.97        39
+
+          accuracy                           0.97       145
+         macro avg       0.96      0.97      0.96       145
+      weighted avg       0.97      0.97      0.97       145
+
+CONFUSION MATRIX ANALYSIS
+--------------------------------------------------------------------------------
+Confusion Matrix (Counts):
+Actual \ Predicted          CleanPulling Too FastReleasing Too Fast
+-----------------------------------------------------------------
+Clean                            63              1              1
+Pulling Too Fast                  2             38              1
+Releasing Too Fast                0              0             39
+
+Confusion Matrix (Percentages by Actual Class):
+Actual \ Predicted          CleanPulling Too FastReleasing Too Fast
+-----------------------------------------------------------------
+Clean                         96.9%           1.5%           1.5%
+Pulling Too Fast               4.9%          92.7%           2.4%
+Releasing Too Fast             0.0%           0.0%         100.0%
+
+CLASSIFICATION METRICS
+--------------------------------------------------------------------------------
+Standard Accuracy: 0.9655
+Balanced Accuracy: 0.9654
+F1 Weighted: 0.9653
+F1 Macro: 0.9647
+
+PER-CLASS DETAILED PERFORMANCE
+--------------------------------------------------------------------------------
+Class                Precision    Recall    F1-Score    Support    Sensitivity
+--------------------------------------------------------------------------------
+Clean                   0.9692    0.9692    0.9692        65      0.9692
+Pulling Too Fast        0.9744    0.9268    0.9500        41      0.9268
+Releasing Too Fast      0.9512    1.0000    0.9750        39      1.0000
+
+Detailed Per-Class Analysis:
+
+Clean:
+  - Precision (PPV): 0.9692 - Of all predicted Clean, 96.9% were correct
+  - Recall (Sensitivity): 0.9692 - Of all actual Clean, 96.9% were identified
+  - F1-Score: 0.9692 - Harmonic mean of precision and recall
+  - Support: 65 samples in test set
+
+Pulling Too Fast:
+  - Precision (PPV): 0.9744 - Of all predicted Pulling Too Fast, 97.4% were correct
+  - Recall (Sensitivity): 0.9268 - Of all actual Pulling Too Fast, 92.7% were identified
+  - F1-Score: 0.9500 - Harmonic mean of precision and recall
+  - Support: 41 samples in test set
+
+Releasing Too Fast:
+  - Precision (PPV): 0.9512 - Of all predicted Releasing Too Fast, 95.1% were correct
+  - Recall (Sensitivity): 1.0000 - Of all actual Releasing Too Fast, 100.0% were identified
+  - F1-Score: 0.9750 - Harmonic mean of precision and recall
+  - Support: 39 samples in test set
+
+FEATURE IMPORTANCE ANALYSIS
+--------------------------------------------------------------------------------
+Top 20 Most Important Features (XGBoost Gain):
+Rank  Feature Name                     Importance    Cumulative %
+--------------------------------------------------------------------------------
+   1  accelMag_peak_position             0.1628       16.3%
+   2  filteredMag_skew                   0.0842       24.7%
+   3  accelZ_diff_std                    0.0770       32.4%
+   4  accelMag_max                       0.0421       36.6%
+   5  accelZ_diff_mean                   0.0314       39.8%
+   6  accelX_p75                         0.0265       42.4%
+   7  rep_duration_ms                    0.0240       44.8%
+   8  filteredZ_kurtosis                 0.0239       47.2%
+   9  filteredZ_min                      0.0230       49.5%
+  10  accelX_p25                         0.0191       51.4%
+  11  filteredZ_iqr                      0.0189       53.3%
+  12  filteredZ_range                    0.0173       55.0%
+  13  gyroX_p25                          0.0167       56.7%
+  14  accelZ_jerk_mean                   0.0161       58.3%
+  15  accelZ_skew                        0.0142       59.7%
+  16  gyroZ_iqr                          0.0141       61.1%
+  17  filteredZ_jerk_mean                0.0133       62.5%
+  18  accelZ_iqr                         0.0132       63.8%
+  19  filteredZ_p25                      0.0130       65.1%
+  20  filteredY_energy                   0.0128       66.4%
+
+Top 20 features account for 66.4% of total importance.
+
+Feature Importance Statistics:
+  Mean importance:     0.0167
+  Std deviation:       0.0239
+  Max importance:      0.1628
+  Min importance:      0.0025
+  Top 5% threshold:    0.0439
+  Top 10% threshold:   0.0242
+
+XGBOOST-SPECIFIC ANALYSIS
+--------------------------------------------------------------------------------
+Gradient Boosting Characteristics:
+  - Sequential tree building (boosting)
+  - Each tree corrects errors of previous trees
+  - L1 regularization (alpha): 0.1
+  - L2 regularization (lambda): 1.0
+  - Learning rate: 0.1 (controls step size)
+  - Max depth: 6 (tree complexity)
+  - Subsample: 0.8 (row sampling per tree)
+  - Colsample by tree: 0.8 (column sampling per tree)
+
+COMPREHENSIVE SUMMARY & CONCLUSIONS
+================================================================================
+Model Performance Summary:
+----------------------------------------
+- Overall Accuracy:      96.6% (Test Set)
+- Cross-Validation:      92.6% +/- 2.4% (5-fold)
+- Balanced Accuracy:     96.5%
+- F1-Score (Macro):      96.5%
+- Model Stability:       Good (CV = 2.57%)
+- Generalization Gap:    0.0789
+
+Key Findings:
+----------------------------------------
+- EXCELLENT: Model achieves >95% accuracy suitable for production deployment
+- EFFICIENT: 76.7% dimensionality reduction with minimal performance loss
+- STABLE: Good generalization with acceptable overfitting
+
+Recommendations:
+----------------------------------------
+1. DEPLOYMENT READY: Model suitable for production use
+2. Monitor performance on new users and exercises
+3. Regularly retrain with new data to maintain performance
+4. Consider ensemble with Random Forest for critical applications
+5. Monitor for concept drift in production environment
+
+Technical Details:
+----------------------------------------
+- Feature Engineering:   60 sensor-derived features
+- Cross-Validation:      Stratified 5-fold with proper train/test split
+- Model Complexity:      200 gradient boosted trees
+- Data Preprocessing:    StandardScaler + feature selection
+- Evaluation Metrics:    Comprehensive imbalance-aware assessment
+- Regularization:        L1=0.1, L2=1.0
+
+================================================================================
+END OF COMPREHENSIVE EVALUATION REPORT
+================================================================================

@@ -1,0 +1,201 @@
+================================================================================
+SVM CLASSIFIER - COMPREHENSIVE EVALUATION REPORT
+================================================================================
+
+EXECUTIVE SUMMARY
+--------------------------------------------------------------------------------
+This report presents a comprehensive evaluation of a Support Vector Machine classifier
+for exercise form quality assessment. The model achieved 88.2% test accuracy
+with 87.9% +/- 3.6% cross-validation accuracy.
+Dataset dimensionality was reduced from 258 to 60 features (76.7% reduction).
+The classifier discriminates between 3 movement quality classes: Clean, Uncontrolled Movement, Inclination Asymmetry.
+The model uses 251 support vectors (228.2% of training data).
+
+EXPERIMENT METADATA
+--------------------------------------------------------------------------------
+Training Date:           20260407_172905
+Random Seed:             42
+Cross-Validation:        5-Fold Stratified
+Test Set Size:           110 samples
+Training Set Size:       Remaining after 80/20 split
+SMOTE Applied:           Yes
+Class Imbalance Strategy: class_weight=balanced
+
+MODEL CONFIGURATION
+--------------------------------------------------------------------------------
+Algorithm:               Support Vector Machine (SVM)
+Kernel:                  rbf
+C (Regularization):      1.0
+Gamma:                   scale
+Class Weight:            balanced
+Probability:             True
+Cache Size:              1000 MB
+Random State:            42
+Support Vectors:         251 total
+  - Clean: 108 support vectors
+  - Uncontrolled Movement: 76 support vectors
+  - Inclination Asymmetry: 67 support vectors
+
+DATASET & DIMENSIONALITY ANALYSIS
+--------------------------------------------------------------------------------
+Original Feature Count:    258
+Final Feature Count:       60
+Dimensionality Reduction:  correlation_rf_importance
+Feature Reduction Rate:    76.7%
+Features Retained:         23.3%
+
+Test Set Class Distribution:
+  Clean               :  55 samples ( 50.0%)
+  Uncontrolled Movement:  26 samples ( 23.6%)
+  Inclination Asymmetry:  29 samples ( 26.4%)
+
+CROSS-VALIDATION ANALYSIS (5-FOLD STRATIFIED)
+--------------------------------------------------------------------------------
+Summary Statistics:
+  Accuracy:           0.8793 +/- 0.0362
+  Balanced Accuracy:  0.8579 +/- 0.0439
+  F1 Weighted:        0.8771 +/- 0.0371
+  F1 Macro:           0.8594 +/- 0.0432
+  Precision Macro:    0.8727 +/- 0.0412
+  Recall Macro:       0.8579 +/- 0.0439
+
+Per-Fold Detailed Results:
+Fold    Accuracy  Bal.Acc   F1-Weighted F1-Macro  Prec-Macro Rec-Macro
+--------------------------------------------------------------------------------
+   1     0.8295    0.7930      0.8284    0.8026     0.8267    0.7930
+   2     0.9318    0.9131      0.9297    0.9256     0.9457    0.9131
+   3     0.8636    0.8607      0.8641    0.8547     0.8496    0.8607
+   4     0.8636    0.8273      0.8541    0.8278     0.8550    0.8273
+   5     0.9080    0.8957      0.9094    0.8861     0.8867    0.8957
+
+Statistical Analysis:
+  Accuracy Range:     0.1023 (min: 0.8295, max: 0.9318)
+  Training Accuracy:  N/A
+  Validation Accuracy: 0.8579
+  Generalization Gap: 0.0000
+  Coefficient of Variation: 4.12% (model stability indicator)
+  Stability Assessment: Good
+
+TEST SET PERFORMANCE
+--------------------------------------------------------------------------------
+                       precision    recall  f1-score   support
+
+                Clean       0.94      0.93      0.94        55
+Uncontrolled Movement       0.80      0.77      0.78        26
+Inclination Asymmetry       0.84      0.90      0.87        29
+
+             accuracy                           0.88       110
+            macro avg       0.86      0.86      0.86       110
+         weighted avg       0.88      0.88      0.88       110
+
+CONFUSION MATRIX ANALYSIS
+--------------------------------------------------------------------------------
+Confusion Matrix (Counts):
+Actual \ Predicted          CleanUncontrolled MovementInclination Asymmetry
+-----------------------------------------------------------------
+Clean                            51              3              1
+Uncontrolled Movement              2             20              4
+Inclination Asymmetry              1              2             26
+
+Confusion Matrix (Percentages by Actual Class):
+Actual \ Predicted          CleanUncontrolled MovementInclination Asymmetry
+-----------------------------------------------------------------
+Clean                         92.7%           5.5%           1.8%
+Uncontrolled Movement           7.7%          76.9%          15.4%
+Inclination Asymmetry           3.4%           6.9%          89.7%
+
+CLASSIFICATION METRICS
+--------------------------------------------------------------------------------
+Standard Accuracy: 0.8818
+Balanced Accuracy: 0.8644
+F1 Weighted: 0.8818
+F1 Macro: 0.8623
+
+PER-CLASS DETAILED PERFORMANCE
+--------------------------------------------------------------------------------
+Class                Precision    Recall    F1-Score    Support    Sensitivity
+--------------------------------------------------------------------------------
+Clean                   0.9444    0.9273    0.9358        55      0.9273
+Uncontrolled Movement    0.8000    0.7692    0.7843        26      0.7692
+Inclination Asymmetry    0.8387    0.8966    0.8667        29      0.8966
+
+Detailed Per-Class Analysis:
+
+Clean:
+  - Precision (PPV): 0.9444 - Of all predicted Clean, 94.4% were correct
+  - Recall (Sensitivity): 0.9273 - Of all actual Clean, 92.7% were identified
+  - F1-Score: 0.9358 - Harmonic mean of precision and recall
+  - Support: 55 samples in test set
+
+Uncontrolled Movement:
+  - Precision (PPV): 0.8000 - Of all predicted Uncontrolled Movement, 80.0% were correct
+  - Recall (Sensitivity): 0.7692 - Of all actual Uncontrolled Movement, 76.9% were identified
+  - F1-Score: 0.7843 - Harmonic mean of precision and recall
+  - Support: 26 samples in test set
+
+Inclination Asymmetry:
+  - Precision (PPV): 0.8387 - Of all predicted Inclination Asymmetry, 83.9% were correct
+  - Recall (Sensitivity): 0.8966 - Of all actual Inclination Asymmetry, 89.7% were identified
+  - F1-Score: 0.8667 - Harmonic mean of precision and recall
+  - Support: 29 samples in test set
+
+SVM-SPECIFIC ANALYSIS
+--------------------------------------------------------------------------------
+Support Vector Machine Characteristics:
+  - Kernel function: rbf
+  - Decision boundary: Maximum margin hyperplane
+  - Total support vectors: 251
+  - Support vector ratio: 228.2% of training data
+  - Regularization (C): 1.0 (lower = more regularization)
+  - Gamma: scale (kernel coefficient)
+
+Support Vectors per Class:
+  - Clean: 108 vectors (43.0%)
+  - Uncontrolled Movement: 76 vectors (30.3%)
+  - Inclination Asymmetry: 67 vectors (26.7%)
+
+Kernel Analysis:
+  - RBF (Radial Basis Function) kernel selected
+  - Good for non-linear decision boundaries
+  - Gamma=scale controls influence of single training example
+
+COMPREHENSIVE SUMMARY & CONCLUSIONS
+================================================================================
+Model Performance Summary:
+----------------------------------------
+- Overall Accuracy:      88.2% (Test Set)
+- Cross-Validation:      87.9% +/- 3.6% (5-fold)
+- Balanced Accuracy:     86.4%
+- F1-Score (Macro):      86.2%
+- Model Stability:       Good (CV = 4.12%)
+- Generalization Gap:    0.0000
+- Support Vector Ratio:  228.2%
+
+Key Findings:
+----------------------------------------
+- MODERATE: Model achieves >85% accuracy requiring human oversight
+- EFFICIENT: 76.7% dimensionality reduction with minimal performance loss
+- ROBUST: Excellent generalization with minimal overfitting
+- COMPLEX: High support vector ratio (228.2%) may indicate overfitting
+
+Recommendations:
+----------------------------------------
+1. REQUIRES IMPROVEMENT: Consider additional data collection
+2. Implement human-in-the-loop validation
+3. Regularly retrain with new data to maintain performance
+4. Consider ensemble with RF/XGBoost for critical applications
+5. Monitor for concept drift in production environment
+6. High support vector ratio - consider reducing C or using linear kernel
+
+Technical Details:
+----------------------------------------
+- Feature Engineering:   60 sensor-derived features
+- Cross-Validation:      Stratified 5-fold with proper train/test split
+- Model Complexity:      251 support vectors
+- Data Preprocessing:    StandardScaler (CRITICAL for SVM)
+- Evaluation Metrics:    Comprehensive imbalance-aware assessment
+- Kernel Function:       rbf
+
+================================================================================
+END OF COMPREHENSIVE EVALUATION REPORT
+================================================================================

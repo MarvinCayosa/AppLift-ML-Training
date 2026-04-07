@@ -1,0 +1,199 @@
+{
+  "model_type": "XGBClassifier",
+  "training_date": "20260407_162956",
+  "feature_names": [
+    "filteredY_diff_max",
+    "accelMag_range",
+    "filteredY_jerk_rms",
+    "accelMag_rms",
+    "filteredMag_max",
+    "filteredMag_diff_std",
+    "filteredZ_jerk_rms",
+    "accelZ_diff_std",
+    "accelY_diff_std",
+    "gyroX_diff_std",
+    "gyroY_rms",
+    "gyroY_diff_std",
+    "gyroY_energy",
+    "accelMag_diff_std",
+    "accelZ_range",
+    "accelY_max",
+    "gyroZ_diff_std",
+    "gyroY_max",
+    "avg_sample_rate",
+    "accelZ_max",
+    "gyroY_min",
+    "accelY_rms",
+    "accelZ_jerk_max",
+    "gyroZ_jerk_max",
+    "gyroX_max",
+    "gyroX_rms",
+    "filteredMag_range",
+    "accelZ_energy",
+    "filteredMag_peak_position",
+    "accelX_smoothness",
+    "gyroX_min",
+    "gyroX_range",
+    "gyroZ_kurtosis",
+    "accelY_range",
+    "filteredZ_range",
+    "accelY_p75",
+    "gyroZ_range",
+    "filteredMag_jerk_mean",
+    "accelX_energy",
+    "accelY_peak_position",
+    "filteredY_peak_position",
+    "accelMag_kurtosis",
+    "accelZ_p75",
+    "gyroZ_rms",
+    "rep_duration_ms",
+    "gyroY_mean",
+    "accelX_rms",
+    "filteredMag_energy",
+    "gyroY_iqr",
+    "gyroX_energy",
+    "gyroY_p75",
+    "gyroZ_p75",
+    "filteredY_jerk_mean",
+    "accelY_median",
+    "gyroZ_iqr",
+    "accelMag_peak_position",
+    "gyroX_peak_position",
+    "accelX_diff_std",
+    "gyroX_median",
+    "gyroZ_min"
+  ],
+  "n_features": 60,
+  "n_classes": 3,
+  "class_names": {
+    "0": "Clean",
+    "1": "Uncontrolled Movement",
+    "2": "Abrupt Initiation"
+  },
+  "metrics": {
+    "test_accuracy": 0.9518716577540107,
+    "test_balanced_accuracy": 0.9521662763466042,
+    "test_f1_weighted": 0.9521000834028357,
+    "test_f1_macro": 0.9531114023591089,
+    "cv_accuracy_mean": 0.9369843400447427,
+    "cv_accuracy_std": 0.019300783321569343,
+    "cv_balanced_accuracy_mean": 0.9378538789253075,
+    "cv_balanced_accuracy_std": 0.02048402669985725
+  },
+  "hyperparameters": {
+    "objective": "multi:softprob",
+    "base_score": null,
+    "booster": null,
+    "callbacks": null,
+    "colsample_bylevel": null,
+    "colsample_bynode": null,
+    "colsample_bytree": 0.8,
+    "device": null,
+    "early_stopping_rounds": null,
+    "enable_categorical": false,
+    "eval_metric": "mlogloss",
+    "feature_types": null,
+    "feature_weights": null,
+    "gamma": 0.1,
+    "grow_policy": null,
+    "importance_type": null,
+    "interaction_constraints": null,
+    "learning_rate": 0.1,
+    "max_bin": null,
+    "max_cat_threshold": null,
+    "max_cat_to_onehot": null,
+    "max_delta_step": null,
+    "max_depth": 6,
+    "max_leaves": null,
+    "min_child_weight": 3,
+    "missing": NaN,
+    "monotone_constraints": null,
+    "multi_strategy": null,
+    "n_estimators": 200,
+    "n_jobs": -1,
+    "num_parallel_tree": null,
+    "random_state": 42,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0,
+    "sampling_method": null,
+    "scale_pos_weight": 1.0,
+    "subsample": 0.8,
+    "tree_method": "hist",
+    "validate_parameters": null,
+    "verbosity": null
+  },
+  "imbalance_strategy": {
+    "use_imbalance_strategy": false,
+    "use_smote": false,
+    "class_weight": null,
+    "imbalance_ratio": 1.2410714285714286,
+    "class_distribution": {
+      "2": 224,
+      "1": 278,
+      "0": 244
+    },
+    "verdict": "[OK] BALANCED"
+  },
+  "dimensionality_reduction": {
+    "method": "correlation_rf_importance",
+    "initial_feature_count": 258,
+    "final_feature_count": 60,
+    "reduction_percent": 76.74418604651163,
+    "steps": [
+      {
+        "step": "correlation_pruning",
+        "threshold": 0.9,
+        "high_correlation_pairs": 109,
+        "dropped_features": 109,
+        "kept_features": 149
+      },
+      {
+        "step": "rf_importance_pruning",
+        "top_k": 60,
+        "kept_features": 60,
+        "top_features_preview": [
+          {
+            "feature": "filteredY_diff_max",
+            "importance": 0.06815601616687599
+          },
+          {
+            "feature": "accelMag_range",
+            "importance": 0.0659767222197975
+          },
+          {
+            "feature": "filteredY_jerk_rms",
+            "importance": 0.046218734224818876
+          },
+          {
+            "feature": "accelMag_rms",
+            "importance": 0.04033340823704492
+          },
+          {
+            "feature": "filteredMag_max",
+            "importance": 0.039248084376717424
+          },
+          {
+            "feature": "filteredMag_diff_std",
+            "importance": 0.035646779815883566
+          },
+          {
+            "feature": "filteredZ_jerk_rms",
+            "importance": 0.034662358753839835
+          },
+          {
+            "feature": "accelZ_diff_std",
+            "importance": 0.031013601340155492
+          },
+          {
+            "feature": "accelY_diff_std",
+            "importance": 0.0298450706947643
+          },
+          {
+            "feature": "gyroX_diff_std",
+            "importance": 0.029060610791323736
+          }
+        ]
+      }
+    ]
+  }
+}
